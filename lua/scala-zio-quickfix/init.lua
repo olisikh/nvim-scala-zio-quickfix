@@ -131,17 +131,20 @@ M.setup = function()
     filetypes = { lang },
     generator = {
       fn = function(context)
+        local bufnr = vim.api.nvim_get_current_buf()
+        local total_lines = vim.api.nvim_buf_line_count(bufnr)
         local actions = {}
 
         local range = context.lsp_params.range
-        local start_row = range.start.line
         local start_col = range.start.character
-        local end_row = range['end'].line
+        local end_row = range['end'].line or total_lines
         local end_col = range['end'].character
 
         local outputs = {}
-        -- TODO: how to avoid parsing entire file again
-        M.collect_diagnostics(outputs, start_row, end_row)
+
+        -- TODO: how to make it faster, can we use information from diagnostic?
+        -- can we make treesitter parse only sections of code?
+        pcall(M.collect_diagnostics, bufnr, outputs)
 
         for _, o in ipairs(outputs) do
           if o.end_row == end_row and o.start_col <= start_col and o.end_col >= end_col then
@@ -163,17 +166,15 @@ M.setup = function()
     filetypes = { lang },
     generator = {
       fn = function(context)
+        local bufnr = vim.api.nvim_get_current_buf()
         local outputs = {}
 
-        vim.print(context)
-
-        -- TODO: how to avoid parsing entire file again
-        M.collect_diagnostics(outputs)
+        pcall(M.collect_diagnostics, bufnr, outputs)
 
         local diagnostics = {}
         for _, o in ipairs(outputs) do
           table.insert(diagnostics, {
-            row = o.start_row + 1,
+            row = o.end_row + 1,
             col = o.start_col + 1,
             end_col = o.end_col + 1,
             source = 'zio-diagnostic',
@@ -188,12 +189,9 @@ M.setup = function()
   })
 end
 
-M.collect_diagnostics = function(outputs, start_line, end_line)
+M.collect_diagnostics = function(bufnr, outputs)
   -- TODO: take it from the null-ls event?
-  local bufnr = vim.api.nvim_get_current_buf()
   local root = parsers.get_tree_root(bufnr)
-  local start_line = start_line or 0
-  local end_line = vim.api.nvim_buf_line_count(bufnr)
 
   local write_output = function(opts)
     table.insert(outputs, {
@@ -211,7 +209,7 @@ M.collect_diagnostics = function(outputs, start_line, end_line)
 
   local function fix_map_unit()
     local query = queries.map_unit
-    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
+    for _, matches, _ in query:iter_matches(root, bufnr) do
       local field = matches[1]
       local args = matches[3]
 
@@ -235,7 +233,7 @@ M.collect_diagnostics = function(outputs, start_line, end_line)
 
   local function fix_map_zip_right()
     local query = queries.zip_right_unit
-    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
+    for _, matches, _ in query:iter_matches(root, bufnr) do
       local field = matches[1]
       local args = matches[3]
 
@@ -260,7 +258,7 @@ M.collect_diagnostics = function(outputs, start_line, end_line)
 
   local function fix_as_unit()
     local query = queries.as_unit
-    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
+    for _, matches, _ in query:iter_matches(root, bufnr) do
       local field = matches[1]
       local args = matches[3]
 
@@ -285,7 +283,7 @@ M.collect_diagnostics = function(outputs, start_line, end_line)
 
   local function fix_as_value()
     local query = queries.as_value
-    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
+    for _, matches, _ in query:iter_matches(root, bufnr) do
       local start = matches[1]
       local value = matches[4]
       local finish = matches[5]
@@ -318,7 +316,7 @@ M.collect_diagnostics = function(outputs, start_line, end_line)
 
   local function fix_map_value()
     local query = queries.map_value
-    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
+    for _, matches, _ in query:iter_matches(root, bufnr) do
       local field = matches[1]
       local target = matches[3]
       local args = matches[4]
@@ -346,7 +344,7 @@ M.collect_diagnostics = function(outputs, start_line, end_line)
 
   local function fix_fold_cause_ignore()
     local query = queries.fold_cause_ignore
-    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
+    for _, matches, _ in query:iter_matches(root, bufnr) do
       local field = matches[1]
       local args = matches[3]
 
@@ -371,7 +369,7 @@ M.collect_diagnostics = function(outputs, start_line, end_line)
 
   local function fix_unit_catch_all_unit()
     local query = queries.unit_catch_all_unit
-    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
+    for _, matches, _ in query:iter_matches(root, bufnr) do
       local field = matches[1]
       local args = matches[5]
 
@@ -396,7 +394,7 @@ M.collect_diagnostics = function(outputs, start_line, end_line)
 
   local function fix_map_error_bimap()
     local query = queries.map_error_bimap
-    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
+    for _, matches, _ in query:iter_matches(root, bufnr) do
       local field = matches[1]
       local value = matches[3]
       local err = matches[5]

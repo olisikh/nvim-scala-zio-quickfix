@@ -15,8 +15,7 @@ local queries = {
   (arguments
     (lambda_expression parameters: (wildcard) (unit))
   ) @end
-)
-]]
+)]]
   ),
   zip_right_unit = ts.query.parse(
     lang,
@@ -37,8 +36,7 @@ local queries = {
     field: (identifier) @_1 (#eq? @_1 "as")
   )
   arguments: (arguments (unit)) @end
-)
-]]
+)]]
   ),
   as_value = ts.query.parse(
     lang,
@@ -51,8 +49,7 @@ local queries = {
     function: ((field_expression) @_2 (#eq? @_2 "ZIO.succeed"))
     arguments: (arguments (_) @value (#not-eq? @value "()"))
   ) @end
-) @end
-]]
+)]]
   ),
   map_value = ts.query.parse(
     lang,
@@ -60,7 +57,7 @@ local queries = {
 (call_expression
   function: (field_expression
     value: (_) @start
-    field: (identifier) @method (#eq? @method "map")
+    field: (identifier) @_1 (#eq? @_1 "map")
   )
   arguments: (arguments
     (lambda_expression
@@ -136,16 +133,18 @@ M.setup = function()
       fn = function(context)
         local actions = {}
 
+        local range = context.lsp_params.range
+        local start_row = range.start.line
+        local start_col = range.start.character
+        local end_row = range['end'].line
+        local end_col = range['end'].character
+
         local outputs = {}
         -- TODO: how to avoid parsing entire file again
-        M.collect_diagnostics(outputs)
-
-        local range = context.lsp_params.range
-        local row = range['start'].line
-        local col = range['start'].character
+        M.collect_diagnostics(outputs, start_row, end_row)
 
         for _, o in ipairs(outputs) do
-          if o.end_row == row and o.start_col <= col and o.end_col >= col then
+          if o.end_row == end_row and o.start_col <= start_col and o.end_col >= end_col then
             table.insert(actions, {
               title = o.message,
               action = o.fn,
@@ -165,6 +164,9 @@ M.setup = function()
     generator = {
       fn = function(context)
         local outputs = {}
+
+        vim.print(context)
+
         -- TODO: how to avoid parsing entire file again
         M.collect_diagnostics(outputs)
 
@@ -186,30 +188,45 @@ M.setup = function()
   })
 end
 
-M.collect_diagnostics = function(outputs)
+M.collect_diagnostics = function(outputs, start_line, end_line)
   -- TODO: take it from the null-ls event?
   local bufnr = vim.api.nvim_get_current_buf()
   local root = parsers.get_tree_root(bufnr)
+  local start_line = start_line or 0
+  local end_line = vim.api.nvim_buf_line_count(bufnr)
+
+  local write_output = function(opts)
+    table.insert(outputs, {
+      title = opts.diagnostic_title,
+      severity = opts.severity or vim.diagnostic.severity.HINT,
+      bufnr = bufnr,
+      start_row = opts.start_row,
+      start_col = opts.start_col,
+      end_col = opts.end_col,
+      end_row = opts.end_row,
+      message = opts.action_title,
+      fn = opts.action_callback,
+    })
+  end
 
   local function fix_map_unit()
     local query = queries.map_unit
-    for _, matches, _ in query:iter_matches(root, bufnr) do
+    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
       local field = matches[1]
       local args = matches[3]
 
       local _, _, start_row, start_col = field:range()
       local _, _, end_row, end_col = args:range()
 
-      table.insert(outputs, {
-        title = 'ZIO: replace .map(_ => ()) with .unit',
+      write_output({
+        diagnostic_title = 'ZIO: replace .map(_ => ()) with .unit',
         bufnr = bufnr,
         start_row = start_row,
         start_col = start_col,
         end_col = end_col,
         end_row = end_row,
-        message = 'ZIO: Replace with .unit smart constructor',
-        severity = vim.diagnostic.severity.HINT,
-        fn = function()
+        action_title = 'ZIO: Replace with .unit smart constructor',
+        action_callback = function()
           vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.unit' })
         end,
       })
@@ -218,7 +235,7 @@ M.collect_diagnostics = function(outputs)
 
   local function fix_map_zip_right()
     local query = queries.zip_right_unit
-    for _, matches, _ in query:iter_matches(root, bufnr) do
+    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
       local field = matches[1]
       local args = matches[3]
 
@@ -243,7 +260,7 @@ M.collect_diagnostics = function(outputs)
 
   local function fix_as_unit()
     local query = queries.as_unit
-    for _, matches, _ in query:iter_matches(root, bufnr) do
+    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
       local field = matches[1]
       local args = matches[3]
 
@@ -268,12 +285,10 @@ M.collect_diagnostics = function(outputs)
 
   local function fix_as_value()
     local query = queries.as_value
-    for _, matches, _ in query:iter_matches(root, bufnr) do
+    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
       local start = matches[1]
       local value = matches[4]
       local finish = matches[5]
-
-      local target_text = ts.get_node_text(value, bufnr)
 
       local _, _, start_row, start_col = start:range()
       local _, _, end_row, end_col = finish:range()
@@ -288,7 +303,14 @@ M.collect_diagnostics = function(outputs)
         message = 'ZIO: Replace with .as smart constructor',
         severity = vim.diagnostic.severity.HINT,
         fn = function()
-          vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.as(' .. target_text .. ')' })
+          vim.api.nvim_buf_set_text(
+            bufnr,
+            start_row,
+            start_col,
+            end_row,
+            end_col,
+            { '.as(' .. ts.get_node_text(value, bufnr) .. ')' }
+          )
         end,
       })
     end
@@ -296,7 +318,7 @@ M.collect_diagnostics = function(outputs)
 
   local function fix_map_value()
     local query = queries.map_value
-    for _, matches, _ in query:iter_matches(root, bufnr) do
+    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
       local field = matches[1]
       local target = matches[3]
       local args = matches[4]
@@ -324,7 +346,7 @@ M.collect_diagnostics = function(outputs)
 
   local function fix_fold_cause_ignore()
     local query = queries.fold_cause_ignore
-    for _, matches, _ in query:iter_matches(root, bufnr) do
+    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
       local field = matches[1]
       local args = matches[3]
 
@@ -349,7 +371,7 @@ M.collect_diagnostics = function(outputs)
 
   local function fix_unit_catch_all_unit()
     local query = queries.unit_catch_all_unit
-    for _, matches, _ in query:iter_matches(root, bufnr) do
+    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
       local field = matches[1]
       local args = matches[5]
 
@@ -374,7 +396,7 @@ M.collect_diagnostics = function(outputs)
 
   local function fix_map_error_bimap()
     local query = queries.map_error_bimap
-    for _, matches, _ in query:iter_matches(root, bufnr) do
+    for _, matches, _ in query:iter_matches(root, bufnr, start_line, end_line) do
       local field = matches[1]
       local value = matches[3]
       local err = matches[5]

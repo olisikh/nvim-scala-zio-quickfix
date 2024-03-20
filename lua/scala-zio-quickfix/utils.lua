@@ -21,8 +21,8 @@ M.verify_type_is_zio = function(bufnr, parent)
   local start_pos = { p_start_row, p_start_col }
   local end_pos = { p_end_row, p_end_col }
 
-  vim.print('Checking type of:')
-  vim.print(M.print_ts_node(parent))
+  -- vim.print('Checking type of:')
+  -- vim.print(M.print_ts_node(parent))
 
   local responses, err = vim.lsp.buf_request_sync(
     bufnr,
@@ -37,16 +37,16 @@ M.verify_type_is_zio = function(bufnr, parent)
   end
 
   if responses == nil then
-    vim.print('No response from LSP')
+    -- vim.print('No response from LSP')
     return false
   end
 
-  vim.print(responses)
+  -- vim.print(responses)
 
   local is_zio = false
   for _, response in ipairs(responses) do
     if response.err ~= nil then
-      vim.print(response.err)
+      -- vim.print(response.err)
     else
       -- TODO: this is unreliable... learn how to do better
       local starts_with_zio = '**Expression type**:\n```scala\nZIO'

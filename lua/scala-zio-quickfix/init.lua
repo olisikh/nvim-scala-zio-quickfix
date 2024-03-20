@@ -43,7 +43,7 @@ M.setup = function()
         local bufnr = vim.api.nvim_get_current_buf()
 
         if context.lsp_method == 'textDocument/didOpen' then
-          vim.print('sleep for a bit, until metals is ready')
+          -- vim.print('sleep for a bit, until metals is ready')
           async.util.sleep(5000)
         end
 

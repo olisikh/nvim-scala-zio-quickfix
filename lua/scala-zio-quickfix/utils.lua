@@ -24,12 +24,10 @@ M.verify_type_is_zio = function(bufnr, parent)
   -- vim.print('Checking type of:')
   -- vim.print(M.print_ts_node(parent))
 
-  local responses, err = vim.lsp.buf_request_sync(
-    bufnr,
-    'textDocument/hover',
-    vim.lsp.util.make_given_range_params(start_pos, end_pos),
-    10000
-  )
+  -- TODO: use async version instead
+
+  local params = vim.lsp.util.make_given_range_params(start_pos, end_pos)
+  local responses, err = vim.lsp.buf_request_sync(bufnr, 'textDocument/hover', params, 10000)
 
   if err ~= nil then
     vim.print(err)
@@ -46,7 +44,7 @@ M.verify_type_is_zio = function(bufnr, parent)
   local is_zio = false
   for _, response in ipairs(responses) do
     if response.err ~= nil then
-      -- vim.print(response.err)
+      vim.print(response.err)
     else
       -- TODO: this is unreliable... learn how to do better
       local starts_with_zio = '**Expression type**:\n```scala\nZIO'

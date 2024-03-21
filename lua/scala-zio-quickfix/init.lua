@@ -123,6 +123,23 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
       ),
       1
     ),
+    async.wrap(
+      query.fix_as_value(
+        bufnr,
+        root,
+        start_line,
+        end_line,
+        function(actions, start_row, start_col, end_row, end_col, value)
+          table.insert(
+            actions,
+            utils.make_code_action('ZIO: replace .map(_ => ' .. value .. ') with .as(' .. value .. ')', function()
+              vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.as(' .. value .. ')' })
+            end)
+          )
+        end
+      ),
+      1
+    ),
   })
 
   done(utils.flatten_array(actions))
@@ -174,6 +191,28 @@ M.collect_diagnostics = function(bufnr, done)
           )
         )
       end),
+      1
+    ),
+
+    async.wrap(
+      query.fix_map_value(
+        bufnr,
+        root,
+        start_line,
+        end_line,
+        function(diagnostics, _, start_col, end_row, end_col, value)
+          table.insert(
+            diagnostics,
+            utils.make_diagnostic(
+              source,
+              end_row,
+              start_col,
+              end_col,
+              'ZIO: replace .map(_ => ' .. value .. ') with .as(' .. value .. ')'
+            )
+          )
+        end
+      ),
       1
     ),
   })

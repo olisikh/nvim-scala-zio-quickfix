@@ -59,7 +59,8 @@ local queries = {
   )
   arguments: (arguments
     (lambda_expression
-      parameters: (wildcard) (_) @value)
+      parameters: (wildcard) (_) @value (#not-eq? @value "()")
+    )
   ) @end
 )]]
   ),
@@ -225,61 +226,53 @@ function M.fix_as_value(bufnr, root, start_line, end_line, handler)
         handler(results, start_row, start_col, end_row, end_col, ts.get_node_text(value, bufnr))
         -- end
       end
-
-      -- table.insert(outputs, {
-      --   title = 'ZIO: replace *> ZIO.succeed(...) with .as(...)',
-      --   bufnr = bufnr,
-      --   start_row = start_row,
-      --   start_col = start_col,
-      --   end_col = end_col,
-      --   end_row = end_row,
-      --   message = 'ZIO: Replace with .as smart constructor',
-      --   severity = vim.diagnostic.severity.HINT,
-      --   fn = function()
-      --     vim.api.nvim_buf_set_text(
-      --       bufnr,
-      --       start_row,
-      --       start_col,
-      --       end_row,
-      --       end_col,
-      --       { '.as(' .. ts.get_node_text(value, bufnr) .. ')' }
-      --     )
-      --   end,
-      -- })
     end
 
     cb(results)
   end
 end
 
---
--- local function fix_map_value()
---   local query = queries.map_value
---   for _, matches, _ in query:iter_matches(root, bufnr) do
---     local field = matches[1]
---     local target = matches[3]
---     local args = matches[4]
---
---     local target_text = ts.get_node_text(target, bufnr)
---
---     local _, _, start_row, start_col = field:range()
---     local _, _, end_row, end_col = args:range()
---
---     table.insert(outputs, {
---       title = 'ZIO: replace .map(_ => ...) with .as(...)',
---       bufnr = bufnr,
---       start_row = start_row,
---       start_col = start_col,
---       end_col = end_col,
---       end_row = end_row,
---       message = 'ZIO: Replace with .as smart constructor',
---       severity = vim.diagnostic.severity.HINT,
---       fn = function()
---         vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.as(' .. target_text .. ')' })
---       end,
---     })
---   end
--- end
+function M.fix_map_value(bufnr, root, start_line, end_line, handler)
+  start_line = start_line or 0
+  end_line = end_line or vim.api.nvim_buf_line_count(bufnr)
+
+  return function(cb)
+    local results = {}
+    for _, matches, _ in queries.map_value:iter_matches(root, bufnr, start_line, end_line + 1) do
+      local field = matches[1]
+      local value = matches[3]
+      local args = matches[4]
+
+      local _, _, start_row, start_col = field:range()
+      local _, _, end_row, end_col = args:range()
+
+      local parent = utils.lookup_parent_node_by_type(value, 'call_expression')
+      if parent ~= nil then
+        if utils.verify_type_is_zio(bufnr, parent) then
+          handler(results, start_row, start_col, end_row, end_col, ts.get_node_text(value, bufnr))
+        end
+
+        -- table.insert(results, {
+        --
+        --   title = 'ZIO: replace .map(_ => ...) with .as(...)',
+        --   bufnr = bufnr,
+        --   start_row = start_row,
+        --   start_col = start_col,
+        --   end_col = end_col,
+        --   end_row = end_row,
+        --   message = 'ZIO: Replace with .as smart constructor',
+        --   severity = vim.diagnostic.severity.HINT,
+        --   fn = function()
+        --     vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.as(' .. target_text .. ')' })
+        --   end,
+        -- })
+      end
+    end
+
+    cb(results)
+  end
+end
+
 --
 -- local function fix_fold_cause_ignore()
 --   local query = queries.fold_cause_ignore
@@ -402,19 +395,5 @@ end
 --     vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.ignore' })
 --   end
 -- end
-
--- fix_map_unit()
--- fix_map_zip_right()
--- fix_as_unit()
--- fix_as_value()
--- fix_map_value()
--- fix_fold_cause_ignore()
--- fix_unit_catch_all_unit()
--- fix_map_error_bimap()
-
--- vim.print('Resolved actions:')
--- vim.print(outputs)
---
---
 
 return M

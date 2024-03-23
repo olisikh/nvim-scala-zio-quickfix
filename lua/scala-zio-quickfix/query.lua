@@ -3,9 +3,10 @@ local lang = 'scala'
 local utils = require('scala-zio-quickfix.utils')
 
 local queries = {
-  map_unit = ts.query.parse(
-    lang,
-    [[
+  map_unit = {
+    query = utils.parse_ts_query(
+      lang,
+      [[
 (call_expression
   function: (field_expression
     value: (_) @start
@@ -15,20 +16,54 @@ local queries = {
     (lambda_expression parameters: (wildcard) (unit))
   ) @end
 )]]
-  ),
-  zip_right_unit = ts.query.parse(
-    lang,
-    [[
+    ),
+    handler = function(bufnr, matches, results, handler)
+      local field = matches[1]
+      local args = matches[3]
+
+      -- local _, _, start_row, start_col = field:range()
+      local start_row, start_col, end_row, end_col = args:range()
+
+      local parent = utils.find_parent_by_type(field, 'call_expression')
+      if parent ~= nil then
+        if utils.verify_type_is_zio(bufnr, parent) then
+          handler(results, start_row, start_col, end_row, end_col)
+        end
+      end
+    end,
+  },
+
+  zip_right_unit = {
+    query = utils.parse_ts_query(
+      lang,
+      [[
 (infix_expression
   left: (_) @start
   operator: (operator_identifier) @_1 (#eq? @_1 "*>")
   right: (_) @end (#any-of? @end "ZIO.unit" "ZIO.succeed(())")
-)
-]]
-  ),
-  as_unit = ts.query.parse(
-    lang,
-    [[
+)]]
+    ),
+    handler = function(bufnr, matches, results, handler)
+      local field = matches[1]
+      local args = matches[3]
+
+      -- TODO: this might need to change, what if field and args are on differnet lines, then it would make no sense
+
+      -- local _, _, start_row, start_col = field:range()
+      local start_row, start_col, end_row, end_col = args:range()
+
+      local parent = utils.find_parent_by_type(field, 'infix_expression')
+      if parent ~= nil then
+        if utils.verify_type_is_zio(bufnr, parent) then
+          handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, args))
+        end
+      end
+    end,
+  },
+  as_unit = {
+    query = utils.parse_ts_query(
+      lang,
+      [[
 (call_expression
   function: (field_expression
     value: (_) @start
@@ -36,10 +71,28 @@ local queries = {
   )
   arguments: (arguments (unit)) @end
 )]]
-  ),
-  as_value = ts.query.parse(
-    lang,
-    [[
+    ),
+    handler = function(bufnr, matches, results, handler)
+      local field = matches[1]
+      local args = matches[3]
+
+      -- local _, _, start_row, start_col = field:range()
+      local start_row, start_col, end_row, end_col = args:range()
+
+      local parent = utils.find_parent_by_type(field, 'call_expression')
+      if parent ~= nil then
+        -- TODO: figure out how to verify type, LSP returns empty response
+
+        if utils.verify_type_is_zio(bufnr, parent) then
+          handler(results, start_row, start_col, end_row, end_col)
+        end
+      end
+    end,
+  },
+  as_value = {
+    query = ts.query.parse(
+      lang,
+      [[
 (infix_expression
   left: (_) @start
   operator: (operator_identifier) @_1 (#eq? @_1 "*>")
@@ -48,10 +101,30 @@ local queries = {
     arguments: (arguments (_) @value (#not-eq? @value "()"))
   ) @end
 )]]
-  ),
-  map_value = ts.query.parse(
-    lang,
-    [[
+    ),
+
+    handler = function(bufnr, matches, results, handler)
+      -- local start = matches[1]
+      local value = matches[4]
+      local finish = matches[5]
+
+      -- local _, _, start_row, start_col = start:range()
+      local start_row, start_col, end_row, end_col = finish:range()
+
+      local parent = utils.find_parent_by_type(value, 'call_expression')
+      if parent ~= nil then
+        -- TODO: figure out how to verify type, LSP returns empty response
+
+        -- if utils.verify_type_is_zio(bufnr, parent) then
+        handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
+        -- end
+      end
+    end,
+  },
+  map_value = {
+    query = ts.query.parse(
+      lang,
+      [[
 (call_expression
   function: (field_expression
     value: (_) @start
@@ -63,10 +136,28 @@ local queries = {
     )
   ) @end
 )]]
-  ),
-  fold_cause_ignore = ts.query.parse(
-    lang,
-    [[
+    ),
+
+    handler = function(bufnr, matches, results, handler)
+      -- local field = matches[1]
+      local value = matches[3]
+      local args = matches[4]
+
+      -- local _, _, start_row, start_col = field:range()
+      local start_row, start_col, end_row, end_col = args:range()
+
+      local parent = utils.find_parent_by_type(value, 'call_expression')
+      if parent ~= nil then
+        if utils.verify_type_is_zio(bufnr, parent) then
+          handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
+        end
+      end
+    end,
+  },
+  fold_cause_ignore = {
+    query = ts.query.parse(
+      lang,
+      [[
 (call_expression
   function: (field_expression
     value: (_) @start
@@ -79,10 +170,13 @@ local queries = {
     (lambda_expression parameters: (wildcard) (unit))
   ) @end
 )]]
-  ),
-  unit_catch_all_unit = ts.query.parse(
-    lang,
-    [[
+    ),
+    handler = function(bufnr, matches, results, handler) end,
+  },
+  unit_catch_all_unit = {
+    query = ts.query.parse(
+      lang,
+      [[
 (call_expression
   function: (field_expression
     value: (field_expression
@@ -97,10 +191,13 @@ local queries = {
     )
   ) @end
 )]]
-  ),
-  map_error_bimap = ts.query.parse(
-    lang,
-    [[
+    ),
+    handler = function(bufnr, matches, results, handler) end,
+  },
+  map_error_bimap = {
+    query = ts.query.parse(
+      lang,
+      [[
 (call_expression
   function: (field_expression
     value: (call_expression
@@ -118,155 +215,43 @@ local queries = {
     (lambda_expression parameters: (wildcard) (_) @err )
   ) @end
 )]]
-  ),
+    ),
+    handler = function(bufnr, matches, results, handler) end,
+  },
 }
 
 local M = {}
 
-function M.fix_map_unit(bufnr, root, start_line, end_line, handler)
-  start_line = start_line or 0
-  end_line = end_line or vim.api.nvim_buf_line_count(bufnr)
+---
+--- Executes a query on a given buffer and returns the results.
+--- @param opts (table) The options for running the query.
+---   - bufnr (number, optional): The buffer number to run the query on. Defaults to the current buffer.
+---   - start_line (number, optional): The starting line for the query. Defaults to 0.
+---   - end_line (number, optional): The ending line for the query. Defaults to the total number of lines in the buffer.
+---   - root (table): The root object for the query.
+---   - handler (function): The handler function to process query results.
+---   - query_name (string): The name of the query to run.
+--- @return function: A function that takes a callback and executes the query, passing the results to the callback.
+function M.run_query(opts)
+  local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
 
-  return function(cb)
-    local results = {}
-    for _, matches, _ in queries.map_unit:iter_matches(root, bufnr, start_line, end_line + 1) do
-      local field = matches[1]
-      local args = matches[3]
+  local start_line = opts.start_line or 0
+  local end_line = opts.end_line or vim.api.nvim_buf_line_count(bufnr)
 
-      local _, _, start_row, start_col = field:range()
-      local _, _, end_row, end_col = args:range()
+  local root = opts.root
+  local handler = opts.handler
 
-      local parent = utils.lookup_parent_node_by_type(field, 'call_expression')
-      if parent ~= nil then
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col)
-        end
-      end
+  local query = queries[opts.query_name]
+  if query == nil then
+    return function(cb)
+      cb({})
     end
-
-    cb(results)
   end
-end
-
-function M.fix_map_zip_right(bufnr, root, start_line, end_line, handler)
-  start_line = start_line or 0
-  end_line = end_line or vim.api.nvim_buf_line_count(bufnr)
 
   return function(cb)
     local results = {}
-
-    for _, matches, _ in queries.zip_right_unit:iter_matches(root, bufnr, start_line, end_line + 1) do
-      local field = matches[1]
-      local args = matches[3]
-
-      -- TODO: this might need to change, what if field and args are on differnet lines, then it would make no sense
-      local _, _, start_row, start_col = field:range()
-      local _, _, end_row, end_col = args:range()
-
-      local parent = utils.lookup_parent_node_by_type(field, 'infix_expression')
-      if parent ~= nil then
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col)
-        end
-      end
-    end
-
-    cb(results)
-  end
-end
-
-function M.fix_as_unit(bufnr, root, start_line, end_line, handler)
-  start_line = start_line or 0
-  end_line = end_line or vim.api.nvim_buf_line_count(bufnr)
-
-  return function(cb)
-    local results = {}
-
-    for _, matches, _ in queries.as_unit:iter_matches(root, bufnr, start_line, end_line + 1) do
-      local field = matches[1]
-      local args = matches[3]
-
-      local _, _, start_row, start_col = field:range()
-      local _, _, end_row, end_col = args:range()
-
-      local parent = utils.lookup_parent_node_by_type(field, 'call_expression')
-      if parent ~= nil then
-        -- TODO: figure out how to verify type, LSP returns empty response
-
-        -- if utils.verify_type_is_zio(bufnr, parent) then
-        handler(results, start_row, start_col, end_row, end_col)
-        -- end
-      end
-    end
-
-    cb(results)
-  end
-end
-
-function M.fix_as_value(bufnr, root, start_line, end_line, handler)
-  start_line = start_line or 0
-  end_line = end_line or vim.api.nvim_buf_line_count(bufnr)
-
-  return function(cb)
-    local results = {}
-
-    for _, matches, _ in queries.as_value:iter_matches(root, bufnr, start_line, end_line + 1) do
-      local start = matches[1]
-      local value = matches[4]
-      local finish = matches[5]
-
-      local _, _, start_row, start_col = start:range()
-      local _, _, end_row, end_col = finish:range()
-
-      local parent = utils.lookup_parent_node_by_type(value, 'call_expression')
-      if parent ~= nil then
-        -- TODO: figure out how to verify type, LSP returns empty response
-
-        -- if utils.verify_type_is_zio(bufnr, parent) then
-        handler(results, start_row, start_col, end_row, end_col, ts.get_node_text(value, bufnr))
-        -- end
-      end
-    end
-
-    cb(results)
-  end
-end
-
-function M.fix_map_value(bufnr, root, start_line, end_line, handler)
-  start_line = start_line or 0
-  end_line = end_line or vim.api.nvim_buf_line_count(bufnr)
-
-  return function(cb)
-    local results = {}
-    for _, matches, _ in queries.map_value:iter_matches(root, bufnr, start_line, end_line + 1) do
-      local field = matches[1]
-      local value = matches[3]
-      local args = matches[4]
-
-      local _, _, start_row, start_col = field:range()
-      local _, _, end_row, end_col = args:range()
-
-      local parent = utils.lookup_parent_node_by_type(value, 'call_expression')
-      if parent ~= nil then
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col, ts.get_node_text(value, bufnr))
-        end
-
-        -- table.insert(results, {
-        --
-        --   title = 'ZIO: replace .map(_ => ...) with .as(...)',
-        --   bufnr = bufnr,
-        --   start_row = start_row,
-        --   start_col = start_col,
-        --   end_col = end_col,
-        --   end_row = end_row,
-        --   message = 'ZIO: Replace with .as smart constructor',
-        --   severity = vim.diagnostic.severity.HINT,
-        --   fn = function()
-        --     vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.as(' .. target_text .. ')' })
-        --   end,
-        -- })
-      end
+    for _, matches, _ in query.query:iter_matches(root, bufnr, start_line, end_line + 1) do
+      query.handler(bufnr, matches, results, handler)
     end
 
     cb(results)

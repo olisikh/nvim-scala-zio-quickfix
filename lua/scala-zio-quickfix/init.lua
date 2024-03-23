@@ -18,17 +18,19 @@ M.setup = function()
     generator = {
       async = true,
       fn = function(context, done)
-        -- vim.print(context)
-        local bufnr = vim.api.nvim_get_current_buf()
+        async.run(function()
+          -- vim.print(context)
+          local bufnr = vim.api.nvim_get_current_buf()
 
-        local range = context.lsp_params.range
+          local range = context.lsp_params.range
 
-        local start_row = range.start.line
-        local start_col = range.start.character
-        local end_row = range['end'].line
-        local end_col = range['end'].character
+          local start_row = range.start.line
+          local start_col = range.start.character
+          local end_row = range['end'].line
+          local end_col = range['end'].character
 
-        M.resolve_actions(bufnr, start_row, end_row, done)
+          M.resolve_actions(bufnr, start_row, end_row, done)
+        end)
       end,
     },
   })
@@ -40,24 +42,17 @@ M.setup = function()
     generator = {
       async = true,
       fn = function(context, done)
-        local bufnr = vim.api.nvim_get_current_buf()
+        async.run(function()
+          local bufnr = vim.api.nvim_get_current_buf()
 
-        if context.lsp_method == 'textDocument/didOpen' then
-          -- vim.print('sleep for a bit, until metals is ready')
-          async.util.sleep(5000)
-        end
+          local metals = utils.ensure_metals(bufnr, 0)
+          if metals == nil then
+            vim.notify('Metals is not ready, will check in later')
+            return { {} }
+          end
 
-        local metals = vim.lsp.get_active_clients({
-          bufnr = bufnr,
-          name = 'metals',
-        })[1]
-
-        if metals == nil then
-          vim.notify('Metals is not ready, will check in later')
-          return { {} }
-        end
-
-        M.collect_diagnostics(bufnr, done)
+          M.collect_diagnostics(bufnr, done)
+        end)
       end,
     },
   })
@@ -68,76 +63,96 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
 
   local actions = async.util.join({
     async.wrap(
-      query.fix_map_unit(bufnr, root, start_line, end_line, function(actions, start_row, start_col, end_row, end_col)
-        table.insert(
-          actions,
-          utils.make_code_action('ZIO: Replace with .unit smart constructor', function()
-            vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.unit' })
-          end)
-        )
-      end),
-      1
-    ),
-    async.wrap(
-      query.fix_map_zip_right(
-        bufnr,
-        root,
-        start_line,
-        end_line,
-        function(actions, start_row, start_col, end_row, end_col)
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'map_unit',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(actions, start_row, start_col, end_row, end_col)
           table.insert(
             actions,
-            utils.make_code_action('ZIO: Replace *> ZIO.unit with .unit', function()
+            utils.make_code_action('ZIO: Replace with .unit smart constructor', function()
               vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.unit' })
             end)
           )
-        end
-      ),
+        end,
+      }),
       1
     ),
     async.wrap(
-      query.fix_as_unit(bufnr, root, start_line, end_line, function(actions, start_row, start_col, end_row, end_col)
-        table.insert(
-          actions,
-          utils.make_code_action('ZIO: Replace .as(()) with .unit', function()
-            vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.unit' })
-          end)
-        )
-      end),
-      1
-    ),
-    async.wrap(
-      query.fix_as_value(
-        bufnr,
-        root,
-        start_line,
-        end_line,
-        function(actions, start_row, start_col, end_row, end_col, value)
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'zip_right_unit',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(actions, start_row, start_col, end_row, end_col, replaced)
           table.insert(
             actions,
-            utils.make_code_action('ZIO: Replace *> ZIO.succeed(' .. value .. ') with .as(' .. value .. ')', function()
-              vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.as(' .. value .. ')' })
+            utils.make_code_action('ZIO: Replace ' .. replaced .. ' with .unit', function()
+              vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.unit' })
             end)
           )
-        end
-      ),
+        end,
+      }),
       1
     ),
     async.wrap(
-      query.fix_as_value(
-        bufnr,
-        root,
-        start_line,
-        end_line,
-        function(actions, start_row, start_col, end_row, end_col, value)
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'as_unit',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(actions, start_row, start_col, end_row, end_col)
+          table.insert(
+            actions,
+            utils.make_code_action('ZIO: Replace .as(()) with .unit', function()
+              vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.unit' })
+            end)
+          )
+        end,
+      }),
+      1
+    ),
+    async.wrap(
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'as_value',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(actions, start_row, start_col, end_row, end_col, value)
+          table.insert(
+            actions,
+            utils.make_code_action(
+              "ZIO: Replace '*> ZIO.succeed(" .. value .. ")' with '.as(" .. value .. ")'",
+              function()
+                vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.as(' .. value .. ')' })
+              end
+            )
+          )
+        end,
+      }),
+      1
+    ),
+    async.wrap(
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'map_value',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(actions, start_row, start_col, end_row, end_col, value)
           table.insert(
             actions,
             utils.make_code_action('ZIO: replace .map(_ => ' .. value .. ') with .as(' .. value .. ')', function()
               vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.as(' .. value .. ')' })
             end)
           )
-        end
-      ),
+        end,
+      }),
       1
     ),
   })
@@ -152,55 +167,84 @@ M.collect_diagnostics = function(bufnr, done)
 
   local diagnostics = async.util.join({
     async.wrap(
-      query.fix_map_unit(bufnr, root, start_line, end_line, function(diagnostics, _, start_col, end_row, end_col)
-        table.insert(
-          diagnostics,
-          utils.make_diagnostic(source, end_row, start_col, end_col, 'ZIO: replace .map(_ => ()) with .unit')
-        )
-      end),
-      1
-    ),
-    async.wrap(
-      query.fix_map_zip_right(bufnr, root, start_line, end_line, function(diagnostics, _, start_col, end_row, end_col)
-        table.insert(
-          diagnostics,
-          utils.make_diagnostic(source, end_row, start_col, end_col, 'ZIO: replace *> ZIO.succeed(()) with .unit')
-        )
-      end),
-      1
-    ),
-    async.wrap(
-      query.fix_as_unit(bufnr, root, start_line, end_line, function(diagnostics, _, start_col, end_row, end_col)
-        table.insert(
-          diagnostics,
-          utils.make_diagnostic(source, end_row, start_col, end_col, 'ZIO: replace .as(()) with .unit')
-        )
-      end),
-      1
-    ),
-    async.wrap(
-      query.fix_as_value(bufnr, root, start_line, end_line, function(diagnostics, _, start_col, end_row, end_col, value)
-        table.insert(
-          diagnostics,
-          utils.make_diagnostic(
-            source,
-            end_row,
-            start_col,
-            end_col,
-            'ZIO: replace *> ZIO.succeed(' .. value .. ') with .as(' .. value .. ')'
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'map_unit',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(diagnostics, _, start_col, end_row, end_col)
+          table.insert(
+            diagnostics,
+            utils.make_diagnostic(source, end_row, start_col, end_col, 'ZIO: replace .map(_ => ()) with .unit')
           )
-        )
-      end),
+        end,
+      }),
+      1
+    ),
+    async.wrap(
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'zip_right_unit',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(diagnostics, _, start_col, end_row, end_col, replaced)
+          table.insert(
+            diagnostics,
+            utils.make_diagnostic(source, end_row, start_col, end_col, 'ZIO: replace *> ' .. replaced .. ' with .unit')
+          )
+        end,
+      }),
+      1
+    ),
+    async.wrap(
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'as_unit',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(diagnostics, _, start_col, end_row, end_col)
+          table.insert(
+            diagnostics,
+            utils.make_diagnostic(source, end_row, start_col, end_col, 'ZIO: replace .as(()) with .unit')
+          )
+        end,
+      }),
+      1
+    ),
+    async.wrap(
+      query.run_query({
+        bunfr = bufnr,
+        root = root,
+        query_name = 'as_value',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(diagnostics, _, start_col, end_row, end_col, value)
+          table.insert(
+            diagnostics,
+            utils.make_diagnostic(
+              source,
+              end_row,
+              start_col,
+              end_col,
+              'ZIO: replace *> ZIO.succeed(' .. value .. ') with .as(' .. value .. ')'
+            )
+          )
+        end,
+      }),
       1
     ),
 
     async.wrap(
-      query.fix_map_value(
-        bufnr,
-        root,
-        start_line,
-        end_line,
-        function(diagnostics, _, start_col, end_row, end_col, value)
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'map_value',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(diagnostics, _, start_col, end_row, end_col, value)
           table.insert(
             diagnostics,
             utils.make_diagnostic(
@@ -211,8 +255,8 @@ M.collect_diagnostics = function(bufnr, done)
               'ZIO: replace .map(_ => ' .. value .. ') with .as(' .. value .. ')'
             )
           )
-        end
-      ),
+        end,
+      }),
       1
     ),
   })

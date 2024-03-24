@@ -2,11 +2,43 @@ local ts = vim.treesitter
 local lang = 'scala'
 local utils = require('scala-zio-quickfix.utils')
 
+local function parse_query(query)
+  return ts.query.parse(lang, query)
+end
+
 local queries = {
+  -- ZIO.succeed(())
+  succeed_unit = {
+    query = parse_query([[
+(call_expression
+  function: (field_expression 
+    value: (_) @start (#eq? @start "ZIO")
+    field: (identifier) @_1 (#eq? @_1 "succeed")
+  )
+  arguments: (arguments (unit)) @end
+) @capture
+]]),
+    handler = function(bufnr, matches, results, handler)
+      local start = matches[1]
+      local finish = matches[3]
+
+      local start_row, start_col, _, _ = start:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local parent = utils.find_parent_by_type(start, 'call_expression')
+
+      if parent ~= nil then
+        -- utils.print_ts_node(bufnr, node)
+        if utils.verify_type_is_zio(bufnr, parent) then
+          handler(results, start_row, start_col, end_row, end_col)
+        end
+      end
+    end,
+  },
+
+  -- x.map(_ => ()) becomes x.unit
   map_unit = {
-    query = utils.parse_ts_query(
-      lang,
-      [[
+    query = parse_query([[
 (call_expression
   function: (field_expression
     value: (_) @start
@@ -14,15 +46,15 @@ local queries = {
   )
   (arguments
     (lambda_expression parameters: (wildcard) (unit))
-  ) @end
-)]]
-    ),
+  ) @finish
+)
+]]),
     handler = function(bufnr, matches, results, handler)
       local field = matches[1]
       local args = matches[3]
 
-      -- local _, _, start_row, start_col = field:range()
-      local start_row, start_col, end_row, end_col = args:range()
+      local _, _, start_row, start_col = field:range()
+      local _, _, end_row, end_col = args:range()
 
       local parent = utils.find_parent_by_type(field, 'call_expression')
       if parent ~= nil then
@@ -33,24 +65,23 @@ local queries = {
     end,
   },
 
+  -- *> ZIO.unit or *> ZIO.unit becomes .unit
   zip_right_unit = {
-    query = utils.parse_ts_query(
-      lang,
-      [[
+    query = parse_query([[
 (infix_expression
   left: (_) @start
   operator: (operator_identifier) @_1 (#eq? @_1 "*>")
-  right: (_) @end (#any-of? @end "ZIO.unit" "ZIO.succeed(())")
-)]]
-    ),
+  right: (_) @finish (#any-of? @finish "ZIO.unit" "ZIO.succeed(())")
+)
+]]),
     handler = function(bufnr, matches, results, handler)
       local field = matches[1]
       local args = matches[3]
 
       -- TODO: this might need to change, what if field and args are on differnet lines, then it would make no sense
 
-      -- local _, _, start_row, start_col = field:range()
-      local start_row, start_col, end_row, end_col = args:range()
+      local _, _, start_row, start_col = field:range()
+      local _, _, end_row, end_col = args:range()
 
       local parent = utils.find_parent_by_type(field, 'infix_expression')
       if parent ~= nil then
@@ -60,26 +91,26 @@ local queries = {
       end
     end,
   },
+
+  -- x.as(()) becomes x.unit
   as_unit = {
-    query = utils.parse_ts_query(
-      lang,
-      [[
+    query = parse_query([[
 (call_expression
   function: (field_expression
     value: (_) @start
     field: (identifier) @_1 (#eq? @_1 "as")
   )
-  arguments: (arguments (unit)) @end
-)]]
-    ),
+  arguments: (arguments (unit)) @finish
+)
+]]),
     handler = function(bufnr, matches, results, handler)
-      local field = matches[1]
-      local args = matches[3]
+      local start = matches[1]
+      local finish = matches[3]
 
-      -- local _, _, start_row, start_col = field:range()
-      local start_row, start_col, end_row, end_col = args:range()
+      local _, _, start_row, start_col = start:range()
+      local _, _, end_row, end_col = finish:range()
 
-      local parent = utils.find_parent_by_type(field, 'call_expression')
+      local parent = utils.find_parent_by_type(start, 'call_expression')
       if parent ~= nil then
         -- TODO: figure out how to verify type, LSP returns empty response
 
@@ -89,29 +120,28 @@ local queries = {
       end
     end,
   },
+
+  -- *> ZIO.succeed(value) becomes .as(value)
   as_value = {
-    query = ts.query.parse(
-      lang,
-      [[
+    query = parse_query([[
 (infix_expression
   left: (_) @start
   operator: (operator_identifier) @_1 (#eq? @_1 "*>")
   right: (call_expression
     function: ((field_expression) @_2 (#eq? @_2 "ZIO.succeed"))
     arguments: (arguments (_) @value (#not-eq? @value "()"))
-  ) @end
-)]]
-    ),
-
+  ) @finish
+)
+]]),
     handler = function(bufnr, matches, results, handler)
-      -- local start = matches[1]
+      local start = matches[1]
       local value = matches[4]
       local finish = matches[5]
 
-      -- local _, _, start_row, start_col = start:range()
-      local start_row, start_col, end_row, end_col = finish:range()
+      local _, _, start_row, start_col = start:range()
+      local _, _, end_row, end_col = finish:range()
 
-      local parent = utils.find_parent_by_type(value, 'call_expression')
+      local parent = utils.find_parent_by_type(finish, 'call_expression')
       if parent ~= nil then
         -- TODO: figure out how to verify type, LSP returns empty response
 
@@ -121,10 +151,10 @@ local queries = {
       end
     end,
   },
+
+  -- x.map(_ => value) becomes x.as(value)
   map_value = {
-    query = ts.query.parse(
-      lang,
-      [[
+    query = parse_query([[
 (call_expression
   function: (field_expression
     value: (_) @start
@@ -134,19 +164,18 @@ local queries = {
     (lambda_expression
       parameters: (wildcard) (_) @value (#not-eq? @value "()")
     )
-  ) @end
-)]]
-    ),
-
+  ) @finish
+)
+]]),
     handler = function(bufnr, matches, results, handler)
-      -- local field = matches[1]
+      local start = matches[1]
       local value = matches[3]
-      local args = matches[4]
+      local finish = matches[4]
 
-      -- local _, _, start_row, start_col = field:range()
-      local start_row, start_col, end_row, end_col = args:range()
+      local _, _, start_row, start_col = start:range()
+      local _, _, end_row, end_col = finish:range()
 
-      local parent = utils.find_parent_by_type(value, 'call_expression')
+      local parent = utils.find_parent_by_type(finish, 'call_expression')
       if parent ~= nil then
         if utils.verify_type_is_zio(bufnr, parent) then
           handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
@@ -154,10 +183,10 @@ local queries = {
       end
     end,
   },
+
+  -- x.foldCause(_ => (), _ => ()) becomes .ignore
   fold_cause_ignore = {
-    query = ts.query.parse(
-      lang,
-      [[
+    query = parse_query([[
 (call_expression
   function: (field_expression
     value: (_) @start
@@ -168,15 +197,29 @@ local queries = {
       parameters: (wildcard) (unit)
     )
     (lambda_expression parameters: (wildcard) (unit))
-  ) @end
-)]]
-    ),
-    handler = function(bufnr, matches, results, handler) end,
+  ) @finish
+)
+]]),
+    handler = function(bufnr, matches, results, handler)
+      -- local field = matches[1]
+      local start = matches[1]
+      local finish = matches[3]
+
+      local _, _, start_row, start_col = start:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local parent = utils.find_parent_by_type(finish, 'call_expression')
+      if parent ~= nil then
+        if utils.verify_type_is_zio(bufnr, parent) then
+          handler(results, start_row, start_col, end_row, end_col)
+        end
+      end
+    end,
   },
+
+  -- x.unit.catchAll(_ => ()) becomes .ignore
   unit_catch_all_unit = {
-    query = ts.query.parse(
-      lang,
-      [[
+    query = parse_query([[
 (call_expression
   function: (field_expression
     value: (field_expression
@@ -189,15 +232,15 @@ local queries = {
     (lambda_expression
       parameters: (wildcard) (field_expression) @_3 (#eq? @_3 "ZIO.unit")
     )
-  ) @end
-)]]
-    ),
+  ) @finish
+)
+]]),
     handler = function(bufnr, matches, results, handler) end,
   },
+
+  -- x.map(x => y).mapError(z => g) becomes .bimap(x => y, z => g)
   map_error_bimap = {
-    query = ts.query.parse(
-      lang,
-      [[
+    query = parse_query([[
 (call_expression
   function: (field_expression
     value: (call_expression
@@ -213,9 +256,9 @@ local queries = {
   )
   arguments: (arguments
     (lambda_expression parameters: (wildcard) (_) @err )
-  ) @end
-)]]
-    ),
+  ) @finish
+)
+]]),
     handler = function(bufnr, matches, results, handler) end,
   },
 }
@@ -241,6 +284,9 @@ function M.run_query(opts)
   local root = opts.root
   local handler = opts.handler
 
+  --- @type table
+  ---   - query (vim.treesitter.Query) - compiled treesitter query
+  ---   - handler (function) - function that knows how to collect results of the match
   local query = queries[opts.query_name]
   if query == nil then
     return function(cb)
@@ -250,40 +296,23 @@ function M.run_query(opts)
 
   return function(cb)
     local results = {}
-    for _, matches, _ in query.query:iter_matches(root, bufnr, start_line, end_line + 1) do
-      query.handler(bufnr, matches, results, handler)
+
+    local ok, query_results = pcall(function()
+      return query.query:iter_matches(root, bufnr, start_line, end_line + 1)
+    end)
+
+    if ok then
+      for _, matches, _ in query_results do
+        query.handler(bufnr, matches, results, handler)
+      end
+    else
+      vim.notify('Query ' .. opts.query_name .. ' failed ' .. query_results, vim.log.levels.WARN)
     end
 
     cb(results)
   end
 end
 
---
--- local function fix_fold_cause_ignore()
---   local query = queries.fold_cause_ignore
---   for _, matches, _ in query:iter_matches(root, bufnr) do
---     local field = matches[1]
---     local args = matches[3]
---
---     local _, _, start_row, start_col = field:range()
---     local _, _, end_row, end_col = args:range()
---
---     table.insert(outputs, {
---       title = 'ZIO: replace .foldCause(_ => (), _ => ()) with .ignore',
---       bufnr = bufnr,
---       start_row = start_row,
---       start_col = start_col,
---       end_col = end_col,
---       end_row = end_row,
---       message = 'ZIO: Replace with .ignore smart constructor',
---       severity = vim.diagnostic.severity.HINT,
---       fn = function()
---         vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.ignore' })
---       end,
---     })
---   end
--- end
---
 -- local function fix_unit_catch_all_unit()
 --   local query = queries.unit_catch_all_unit
 --   for _, matches, _ in query:iter_matches(root, bufnr) do

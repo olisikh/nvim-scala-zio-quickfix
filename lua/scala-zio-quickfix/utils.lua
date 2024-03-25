@@ -71,55 +71,32 @@ function M.find_deepest_node_by_type(node, type)
 end
 
 ---@param bufnr number buffer number
----@param node TSNode node to hover on
----@return boolean
-M.verify_type_is_zio = function(bufnr, node)
+---@param node TSNode|nil node to hover on
+---@param tx function called with the result of the verification (boolean)
+M.verify_type_is_zio = function(bufnr, node, tx)
+  if node == nil then
+    return tx(false)
+  end
+
   local p_start_row, p_start_col, p_end_row, p_end_col = node:range()
   local start_pos = { p_start_row, p_start_col }
   local end_pos = { p_end_row, p_end_col }
-
-  -- TODO: use async version instead
   local params = vim.lsp.util.make_given_range_params(start_pos, end_pos, bufnr)
-  local responses, err = vim.lsp.buf_request_sync(bufnr, 'textDocument/hover', params, 10000)
 
-  if err ~= nil then
-    vim.print(err)
-    return false
-  end
-
-  if responses == nil then
-    vim.print('No response from LSP')
-    return false
-  end
-
-  -- vim.print(responses)
-
-  local is_zio = false
-
-  for _, response in ipairs(responses) do
-    if response.err ~= nil then
-      vim.print(response.err)
-    else
-      local result = response.result
-
-      is_zio = result ~= nil
-        and result.contents ~= nil
-        and result.contents.value ~= nil
-        and string.find(result.contents.value, 'ZIO') ~= nil
-
-      if is_zio then
-        -- vim.print(result.contents.value)
-        break
-        -- else
-        -- if not is_zio then
-        -- vim.print(result)
-        -- M.print_ts_node(bufnr, node)
-        -- end
-      end
+  vim.lsp.buf_request(bufnr, 'textDocument/hover', params, function(err, result, ctx, config)
+    if err ~= nil then
+      vim.print(err)
+      tx(false)
+      return
     end
-  end
 
-  return is_zio
+    local is_zio = result ~= nil
+      and result.contents ~= nil
+      and result.contents.value ~= nil
+      and string.find(result.contents.value, 'ZIO') ~= nil
+
+    tx(is_zio)
+  end)
 end
 
 --- type node: @Node

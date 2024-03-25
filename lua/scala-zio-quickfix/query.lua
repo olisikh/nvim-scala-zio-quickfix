@@ -2,6 +2,8 @@ local ts = vim.treesitter
 local lang = 'scala'
 local utils = require('scala-zio-quickfix.utils')
 
+local async = require('plenary.async')
+
 local function parse_query(query)
   return ts.query.parse(lang, query)
 end
@@ -18,7 +20,7 @@ local queries = {
   arguments: (arguments (unit)) @end
 ) @capture
 ]]),
-    handler = function(bufnr, matches, results, handler)
+    handler = function(results, bufnr, matches, handler)
       local start = matches[1]
       local finish = matches[3]
 
@@ -27,11 +29,12 @@ local queries = {
 
       local parent = utils.find_parent_by_type(start, 'call_expression')
 
-      if parent ~= nil then
-        -- utils.print_ts_node(bufnr, node)
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col)
-        end
+      local tx, rx = async.control.channel.oneshot()
+      utils.verify_type_is_zio(bufnr, parent, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        handler(results, start_row, start_col, end_row, end_col)
       end
     end,
   },
@@ -49,7 +52,7 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(bufnr, matches, results, handler)
+    handler = function(actions, bufnr, matches, handler)
       local field = matches[1]
       local args = matches[3]
 
@@ -57,10 +60,13 @@ local queries = {
       local _, _, end_row, end_col = args:range()
 
       local parent = utils.find_parent_by_type(field, 'call_expression')
-      if parent ~= nil then
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col)
-        end
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.verify_type_is_zio(bufnr, parent, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        handler(actions, start_row, start_col, end_row, end_col)
       end
     end,
   },
@@ -74,20 +80,22 @@ local queries = {
   right: (_) @finish (#any-of? @finish "ZIO.unit" "ZIO.succeed(())")
 )
 ]]),
-    handler = function(bufnr, matches, results, handler)
+    handler = function(actions, bufnr, matches, handler)
       local field = matches[1]
       local args = matches[3]
 
       -- TODO: this might need to change, what if field and args are on differnet lines, then it would make no sense
-
       local _, _, start_row, start_col = field:range()
       local _, _, end_row, end_col = args:range()
 
       local parent = utils.find_parent_by_type(field, 'infix_expression')
-      if parent ~= nil then
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, args))
-        end
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.verify_type_is_zio(bufnr, parent, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        handler(actions, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, args))
       end
     end,
   },
@@ -103,7 +111,7 @@ local queries = {
   arguments: (arguments (unit)) @finish
 )
 ]]),
-    handler = function(bufnr, matches, results, handler)
+    handler = function(actions, bufnr, matches, handler)
       local start = matches[1]
       local finish = matches[3]
 
@@ -111,12 +119,14 @@ local queries = {
       local _, _, end_row, end_col = finish:range()
 
       local parent = utils.find_parent_by_type(start, 'call_expression')
-      if parent ~= nil then
-        -- TODO: figure out how to verify type, LSP returns empty response
+      -- TODO: figure out how to verify type, LSP returns empty response
 
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col)
-        end
+      local tx, rx = async.control.channel.oneshot()
+      utils.verify_type_is_zio(bufnr, parent, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        handler(actions, start_row, start_col, end_row, end_col)
       end
     end,
   },
@@ -133,7 +143,7 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(bufnr, matches, results, handler)
+    handler = function(actions, bufnr, matches, handler)
       local start = matches[1]
       local value = matches[4]
       local finish = matches[5]
@@ -141,14 +151,13 @@ local queries = {
       local _, _, start_row, start_col = start:range()
       local _, _, end_row, end_col = finish:range()
 
-      local parent = utils.find_parent_by_type(finish, 'call_expression')
-      if parent ~= nil then
-        -- TODO: figure out how to verify type, LSP returns empty response
+      -- local parent = utils.find_parent_by_type(finish, 'call_expression')
 
-        -- if utils.verify_type_is_zio(bufnr, parent) then
-        handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
-        -- end
-      end
+      -- TODO: figure out how to verify type, LSP returns empty response
+
+      -- if utils.verify_type_is_zio(bufnr, parent) then
+      handler(actions, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
+      -- end
     end,
   },
 
@@ -167,7 +176,7 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(bufnr, matches, results, handler)
+    handler = function(actions, bufnr, matches, handler)
       local start = matches[1]
       local value = matches[3]
       local finish = matches[4]
@@ -176,10 +185,13 @@ local queries = {
       local _, _, end_row, end_col = finish:range()
 
       local parent = utils.find_parent_by_type(finish, 'call_expression')
-      if parent ~= nil then
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
-        end
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.verify_type_is_zio(bufnr, parent, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        handler(actions, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
       end
     end,
   },
@@ -200,7 +212,7 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(bufnr, matches, results, handler)
+    handler = function(actions, bufnr, matches, handler)
       -- local field = matches[1]
       local start = matches[1]
       local finish = matches[3]
@@ -209,10 +221,13 @@ local queries = {
       local _, _, end_row, end_col = finish:range()
 
       local parent = utils.find_parent_by_type(finish, 'call_expression')
-      if parent ~= nil then
-        if utils.verify_type_is_zio(bufnr, parent) then
-          handler(results, start_row, start_col, end_row, end_col)
-        end
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.verify_type_is_zio(bufnr, parent, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        handler(actions, start_row, start_col, end_row, end_col)
       end
     end,
   },
@@ -274,7 +289,7 @@ local M = {}
 ---   - root (table): The root object for the query.
 ---   - handler (function): The handler function to process query results.
 ---   - query_name (string): The name of the query to run.
---- @return function: A function that takes a callback and executes the query, passing the results to the callback.
+--- @return (table) of the query handler by the opts.handler
 function M.run_query(opts)
   local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
 
@@ -289,28 +304,24 @@ function M.run_query(opts)
   ---   - handler (function) - function that knows how to collect results of the match
   local query = queries[opts.query_name]
   if query == nil then
-    return function(cb)
-      cb({})
-    end
+    return {}
   end
 
-  return function(cb)
-    local results = {}
+  local ok, query_results = pcall(function()
+    return query.query:iter_matches(root, bufnr, start_line, end_line + 1)
+  end)
 
-    local ok, query_results = pcall(function()
-      return query.query:iter_matches(root, bufnr, start_line, end_line + 1)
-    end)
+  local results = {}
 
-    if ok then
-      for _, matches, _ in query_results do
-        query.handler(bufnr, matches, results, handler)
-      end
-    else
-      vim.notify('Query ' .. opts.query_name .. ' failed ' .. query_results, vim.log.levels.WARN)
+  if ok then
+    for _, matches, _ in query_results do
+      query.handler(results, bufnr, matches, handler)
     end
-
-    cb(results)
+  else
+    vim.notify('Query ' .. opts.query_name .. ' failed ' .. query_results, vim.log.levels.WARN)
   end
+
+  return results
 end
 
 -- local function fix_unit_catch_all_unit()

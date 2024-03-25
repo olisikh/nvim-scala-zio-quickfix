@@ -27,15 +27,15 @@ local queries = {
       local start_row, start_col, _, _ = start:range()
       local _, _, end_row, end_col = finish:range()
 
-      local parent = utils.find_parent_by_type(start, 'call_expression')
+      -- local parent = utils.find_parent_by_type(start, 'call_expression')
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.verify_type_is_zio(bufnr, parent, tx)
-      local is_zio = rx()
-
-      if is_zio then
-        handler(results, start_row, start_col, end_row, end_col)
-      end
+      -- local tx, rx = async.control.channel.oneshot()
+      -- utils.verify_type_is_zio(bufnr, parent, tx)
+      -- local is_zio = rx()
+      --
+      -- if is_zio then
+      handler(results, start_row, start_col, end_row, end_col)
+      -- end
     end,
   },
 

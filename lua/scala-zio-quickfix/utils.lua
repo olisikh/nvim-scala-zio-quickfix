@@ -3,6 +3,10 @@ local async = require('plenary.async')
 
 local M = {}
 
+---Makes sure metals is ready
+---@param bufnr integer buffer number
+---@param n integer attempts made, used by recursion
+---@return vim.lsp.Client|nil returns a metals client or nil if not available
 M.ensure_metals = function(bufnr, n)
   if n == 10 then
     return nil
@@ -24,14 +28,18 @@ M.ensure_metals = function(bufnr, n)
   end
 end
 
+---Get the text of the TSNode
+---@param bufnr integer buffer number
+---@param node TSNode to get text of
+---@return string content of the node
 M.get_node_text = function(bufnr, node)
   return ts.get_node_text(node, bufnr)
 end
 
---- Find the deepest node in a tree by type
+---Find the deepest node in a tree by type
 ---@param node TSNode node to traverse children in
 ---@param type string type of the symbol to search
----@return TSNode|nil deepest node by type or nil if not found
+---@return TSNode|nil node by type or nil if not found
 function M.find_deepest_node_by_type(node, type)
   local deepest_node = nil
   local deepest_depth = -1
@@ -55,12 +63,13 @@ function M.find_deepest_node_by_type(node, type)
   return deepest_node
 end
 
+---Verifies if the node has ZIO type
 ---@param bufnr number buffer number
 ---@param node TSNode|nil node to hover on
----@param tx function called with the result of the verification (boolean)
-M.verify_type_is_zio = function(bufnr, node, tx)
+---@param callback function called with the result of the verification (boolean)
+M.verify_type_is_zio = function(bufnr, node, callback)
   if node == nil then
-    return tx(false)
+    return callback(false)
   end
 
   local p_start_row, p_start_col, p_end_row, p_end_col = node:range()
@@ -71,7 +80,7 @@ M.verify_type_is_zio = function(bufnr, node, tx)
   vim.lsp.buf_request(bufnr, 'textDocument/hover', params, function(err, result, ctx, config)
     if err ~= nil then
       vim.print(err)
-      tx(false)
+      callback(false)
       return
     end
 
@@ -80,11 +89,14 @@ M.verify_type_is_zio = function(bufnr, node, tx)
       and result.contents.value ~= nil
       and string.find(result.contents.value, 'ZIO') ~= nil
 
-    tx(is_zio)
+    callback(is_zio)
   end)
 end
 
---- type node: @Node
+---Find a parent of the TSNode by type
+---@param node TSNode to look for a parent from
+---@param type string type of the node to look for
+---@return TSNode? node found or nil
 function M.find_parent_by_type(node, type)
   local curr_node = node
   while curr_node do
@@ -97,6 +109,9 @@ function M.find_parent_by_type(node, type)
   return nil
 end
 
+---Prints information about and content of TSNode
+---@param bufnr buffer number
+---@param node TSNode to print into stdout
 function M.print_ts_node(bufnr, node)
   print('Type:', node:type())
   print('Start:', node:start())
@@ -105,10 +120,9 @@ function M.print_ts_node(bufnr, node)
   vim.print(ts.get_node_text(node, bufnr))
 end
 
-function M.starts_with(str, start)
-  return str:sub(1, #start) == start
-end
-
+---Flattens an array
+---@param arr table to flatten
+---@return table arr but flattened
 function M.flatten_array(arr)
   local function is_array(t)
     local i = 0

@@ -289,7 +289,7 @@ local M = {}
 ---   - root (table): The root object for the query.
 ---   - handler (function): The handler function to process query results.
 ---   - query_name (string): The name of the query to run.
---- @return (table) of the query handler by the opts.handler
+--- @return function callback
 function M.run_query(opts)
   local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
 
@@ -299,29 +299,31 @@ function M.run_query(opts)
   local root = opts.root
   local handler = opts.handler
 
-  --- @type table
-  ---   - query (vim.treesitter.Query) - compiled treesitter query
-  ---   - handler (function) - function that knows how to collect results of the match
-  local query = queries[opts.query_name]
-  if query == nil then
-    return {}
-  end
-
-  local ok, query_results = pcall(function()
-    return query.query:iter_matches(root, bufnr, start_line, end_line + 1)
-  end)
-
-  local results = {}
-
-  if ok then
-    for _, matches, _ in query_results do
-      query.handler(results, bufnr, matches, handler)
+  return function(callback)
+    --- @type table
+    ---   - query (vim.treesitter.Query) - compiled treesitter query
+    ---   - handler (function) - function that knows how to collect results of the match
+    local query = queries[opts.query_name]
+    if query == nil then
+      return callback({})
     end
-  else
-    vim.notify('Query ' .. opts.query_name .. ' failed ' .. query_results, vim.log.levels.WARN)
-  end
 
-  return results
+    local ok, query_results = pcall(function()
+      return query.query:iter_matches(root, bufnr, start_line, end_line + 1)
+    end)
+
+    local results = {}
+
+    if ok then
+      for _, matches, _ in query_results do
+        query.handler(results, bufnr, matches, handler)
+      end
+    else
+      vim.notify('Query ' .. opts.query_name .. ' failed ' .. query_results, vim.log.levels.WARN)
+    end
+
+    return callback(results)
+  end
 end
 
 -- local function fix_unit_catch_all_unit()

@@ -15,7 +15,7 @@ M.ensure_metals = function(bufnr, n)
     if not metals then
       async.util.sleep(1000)
       -- vim.print("metals not confirmed, sleep 1 sec")
-      return M.ensure_metals(n + 1)
+      return M.ensure_metals(bufnr, n + 1)
     else
       -- vim.print("metals confirmed")
       -- vim.print(metals)

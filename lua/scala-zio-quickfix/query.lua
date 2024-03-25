@@ -1,11 +1,9 @@
-local ts = vim.treesitter
-local lang = 'scala'
-local utils = require('scala-zio-quickfix.utils')
-
 local async = require('plenary.async')
+local utils = require('scala-zio-quickfix.utils')
+local ts = vim.treesitter
 
 local function parse_query(query)
-  return ts.query.parse(lang, query)
+  return ts.query.parse('scala', query)
 end
 
 local queries = {
@@ -52,7 +50,7 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(actions, bufnr, matches, handler)
+    handler = function(results, bufnr, matches, handler)
       local field = matches[1]
       local args = matches[3]
 
@@ -66,7 +64,7 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        handler(actions, start_row, start_col, end_row, end_col)
+        handler(results, start_row, start_col, end_row, end_col)
       end
     end,
   },
@@ -80,7 +78,7 @@ local queries = {
   right: (_) @finish (#any-of? @finish "ZIO.unit" "ZIO.succeed(())")
 )
 ]]),
-    handler = function(actions, bufnr, matches, handler)
+    handler = function(results, bufnr, matches, handler)
       local field = matches[1]
       local args = matches[3]
 
@@ -95,7 +93,7 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        handler(actions, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, args))
+        handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, args))
       end
     end,
   },
@@ -111,7 +109,7 @@ local queries = {
   arguments: (arguments (unit)) @finish
 )
 ]]),
-    handler = function(actions, bufnr, matches, handler)
+    handler = function(results, bufnr, matches, handler)
       local start = matches[1]
       local finish = matches[3]
 
@@ -126,7 +124,7 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        handler(actions, start_row, start_col, end_row, end_col)
+        handler(results, start_row, start_col, end_row, end_col)
       end
     end,
   },
@@ -143,7 +141,7 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(actions, bufnr, matches, handler)
+    handler = function(results, bufnr, matches, handler)
       local start = matches[1]
       local value = matches[4]
       local finish = matches[5]
@@ -156,7 +154,7 @@ local queries = {
       -- TODO: figure out how to verify type, LSP returns empty response
 
       -- if utils.verify_type_is_zio(bufnr, parent) then
-      handler(actions, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
+      handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
       -- end
     end,
   },
@@ -176,7 +174,7 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(actions, bufnr, matches, handler)
+    handler = function(results, bufnr, matches, handler)
       local start = matches[1]
       local value = matches[3]
       local finish = matches[4]
@@ -191,7 +189,7 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        handler(actions, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
+        handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
       end
     end,
   },
@@ -212,7 +210,7 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(actions, bufnr, matches, handler)
+    handler = function(results, bufnr, matches, handler)
       -- local field = matches[1]
       local start = matches[1]
       local finish = matches[3]
@@ -227,7 +225,7 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        handler(actions, start_row, start_col, end_row, end_col)
+        handler(results, start_row, start_col, end_row, end_col)
       end
     end,
   },

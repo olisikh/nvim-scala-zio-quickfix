@@ -3,21 +3,6 @@ local async = require('plenary.async')
 
 local M = {}
 
-function M.make_code_action(message, fn)
-  return { title = message, action = fn }
-end
-
-function M.make_diagnostic(source, row, start_col, end_col, message)
-  return {
-    row = row + 1,
-    col = start_col + 1,
-    end_col = end_col + 1,
-    message = message,
-    source = source,
-    severity = vim.diagnostic.severity.HINT,
-  }
-end
-
 M.ensure_metals = function(bufnr, n)
   if n == 10 then
     return nil

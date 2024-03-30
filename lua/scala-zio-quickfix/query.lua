@@ -399,6 +399,68 @@ local queries = {
 ]]),
     handler = function(bufnr, matches, results, handler) end,
   },
+
+  zio_type = {
+    query = parse_query([[
+(
+  generic_type (
+    (
+     (type_identifier) @start (#eq? @start "ZIO")
+    )
+    type_arguments: (
+      type_arguments 
+      (type_identifier) @R_id 
+      (type_identifier) @E_id 
+      (type_identifier) @A_id 
+    ) @finish
+  )
+)
+]]),
+
+    handler = function(results, bufnr, matches, callback)
+      local start = matches[1]
+      local finish = matches[5]
+
+      local r_value = utils.get_node_text(bufnr, matches[2])
+      local e_value = utils.get_node_text(bufnr, matches[3])
+      local a_value = utils.get_node_text(bufnr, matches[4])
+
+      local start_row, start_col, _, _ = start:range()
+      local _, _, end_row, end_col = finish:range()
+
+      -- stylua: ignore start
+      local lookup = {
+        { "Any",   "Nothing",   'UIO['.. a_value .. ']' },
+        { "Any",   "Throwable", 'Task[' .. a_value .. ']'  },
+        { "Any",   e_value,     'IO[' .. e_value .. ', ' .. a_value .. ']'  },
+        { r_value, "Nothing",   'URIO['.. r_value ..', ' .. a_value .. ']' },
+        { r_value, "Throwable", 'RIO[' .. r_value ..', ' .. a_value .. ']' }
+      }
+      -- stylua: ignore end
+
+      for _, m in ipairs(lookup) do
+        if r_value == m[1] and e_value == m[2] then
+          local replacement = m[3]
+
+          callback(results, {
+            diagnostic = {
+              row = start_row,
+              start_col = start_col,
+              end_col = end_col,
+            },
+            action = {
+              start_row = start_row,
+              start_col = start_col,
+              end_row = end_row,
+              end_col = end_col,
+            },
+            replacement = replacement,
+            title = 'ZIO: replace ZIO[' .. r_value .. ', ' .. e_value .. ', ' .. a_value .. '] with ' .. replacement,
+          })
+        end
+      end
+    end,
+  },
 }
 
 local M = {}

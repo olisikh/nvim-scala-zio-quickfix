@@ -25,7 +25,7 @@ function M.collect_diagnostics(bufnr, done)
   local start_line = 0
   local end_line = vim.api.nvim_buf_line_count(bufnr)
 
-  local diagnostics = async.util.join({
+  local ok, diagnostics = pcall(async.util.join, {
     async.wrap(
       query.run_query({
         bufnr = bufnr,
@@ -153,7 +153,12 @@ function M.collect_diagnostics(bufnr, done)
     ),
   })
 
-  done(utils.flatten_array(diagnostics))
+  if ok then
+    done(utils.flatten_array(diagnostics))
+  else
+    -- failed to run diagnostics collection, will retry next time when triggered
+    done(nil)
+  end
 end
 
 return M

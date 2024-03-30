@@ -27,7 +27,7 @@ M.setup = function()
         local metals = utils.ensure_metals(bufnr, 0)
         if metals == nil then
           vim.notify('Metals is not ready, will check in later')
-          return { {} }
+          return done(nil)
         end
 
         diagnostics.collect_diagnostics(bufnr, done)

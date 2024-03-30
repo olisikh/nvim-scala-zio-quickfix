@@ -2,48 +2,51 @@ local async = require('plenary.async')
 local utils = require('scala-zio-quickfix.utils')
 local ts = vim.treesitter
 
+local zio_predicate = function(value)
+  return string.find(value, 'ZIO') ~= nil
+end
+
 local function parse_query(query)
   return ts.query.parse('scala', query)
 end
 
 local queries = {
-  -- ZIO.succeed(())
+  -- ZIO.succeed(()) ~> ZIO.unit
   succeed_unit = {
     query = parse_query([[
 (call_expression
   function: (field_expression 
     value: (_) @start (#eq? @start "ZIO")
-    field: (identifier) @_1 (#eq? @_1 "succeed")
+    field: (identifier) @target (#eq? @target "succeed")
   )
   arguments: (arguments (unit)) @end
 ) @capture
 ]]),
     handler = function(results, bufnr, matches, handler)
       local start = matches[1]
+      local target = matches[2]
       local finish = matches[3]
 
       local start_row, start_col, _, _ = start:range()
       local _, _, end_row, end_col = finish:range()
 
-      -- local parent = utils.find_parent_by_type(start, 'call_expression')
-
       -- local tx, rx = async.control.channel.oneshot()
-      -- utils.verify_type_is_zio(bufnr, parent, tx)
+      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
       -- local is_zio = rx()
-      --
+
       -- if is_zio then
       handler(results, start_row, start_col, end_row, end_col)
       -- end
     end,
   },
 
-  -- x.map(_ => ()) becomes x.unit
+  -- x.map(_ => ()) ~> x.unit
   map_unit = {
     query = parse_query([[
 (call_expression
   function: (field_expression
     value: (_) @start
-    field: (identifier) @_1 (#eq? @_1 "map")
+    field: (identifier) @target (#eq? @target "map")
   )
   (arguments
     (lambda_expression parameters: (wildcard) (unit))
@@ -51,16 +54,15 @@ local queries = {
 )
 ]]),
     handler = function(results, bufnr, matches, handler)
-      local field = matches[1]
-      local args = matches[3]
+      local start = matches[1]
+      local target = matches[2]
+      local finish = matches[3]
 
-      local _, _, start_row, start_col = field:range()
-      local _, _, end_row, end_col = args:range()
-
-      local parent = utils.find_parent_by_type(field, 'call_expression')
+      local _, _, start_row, start_col = start:range()
+      local _, _, end_row, end_col = finish:range()
 
       local tx, rx = async.control.channel.oneshot()
-      utils.verify_type_is_zio(bufnr, parent, tx)
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
       local is_zio = rx()
 
       if is_zio then
@@ -69,7 +71,8 @@ local queries = {
     end,
   },
 
-  -- *> ZIO.unit or *> ZIO.unit becomes .unit
+  -- *> ZIO.succeed(()) ~> .unit
+  -- *> ZIO.unit        ~> .unit
   zip_right_unit = {
     query = parse_query([[
 (infix_expression
@@ -79,48 +82,43 @@ local queries = {
 )
 ]]),
     handler = function(results, bufnr, matches, handler)
-      local field = matches[1]
-      local args = matches[3]
-
-      -- TODO: this might need to change, what if field and args are on differnet lines, then it would make no sense
-      local _, _, start_row, start_col = field:range()
-      local _, _, end_row, end_col = args:range()
-
-      local parent = utils.find_parent_by_type(field, 'infix_expression')
-
-      local tx, rx = async.control.channel.oneshot()
-      utils.verify_type_is_zio(bufnr, parent, tx)
-      local is_zio = rx()
-
-      if is_zio then
-        handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, args))
-      end
-    end,
-  },
-
-  -- x.as(()) becomes x.unit
-  as_unit = {
-    query = parse_query([[
-(call_expression
-  function: (field_expression
-    value: (_) @start
-    field: (identifier) @_1 (#eq? @_1 "as")
-  )
-  arguments: (arguments (unit)) @finish
-)
-]]),
-    handler = function(results, bufnr, matches, handler)
       local start = matches[1]
       local finish = matches[3]
 
       local _, _, start_row, start_col = start:range()
       local _, _, end_row, end_col = finish:range()
 
-      local parent = utils.find_parent_by_type(start, 'call_expression')
-      -- TODO: figure out how to verify type, LSP returns empty response
+      -- local tx, rx = async.control.channel.oneshot()
+      -- utils.hover_node_and_match(bufnr, finish, zio_predicate, tx)
+      -- local is_zio = rx()
+
+      -- if is_zio then
+      handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, finish))
+      -- end
+    end,
+  },
+
+  -- x.as(()) ~> x.unit
+  as_unit = {
+    query = parse_query([[
+(call_expression
+  function: (field_expression
+    value: (_) @start
+    field: (identifier) @target (#eq? @target "as")
+  )
+  arguments: (arguments (unit)) @finish
+)
+]]),
+    handler = function(results, bufnr, matches, handler)
+      local start = matches[1]
+      local target = matches[2]
+      local finish = matches[3]
+
+      local _, _, start_row, start_col = start:range()
+      local _, _, end_row, end_col = finish:range()
 
       local tx, rx = async.control.channel.oneshot()
-      utils.verify_type_is_zio(bufnr, parent, tx)
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
       local is_zio = rx()
 
       if is_zio then
@@ -129,7 +127,7 @@ local queries = {
     end,
   },
 
-  -- *> ZIO.succeed(value) becomes .as(value)
+  -- *> ZIO.succeed(value) ~> .as(value)
   as_value = {
     query = parse_query([[
 (infix_expression
@@ -143,29 +141,30 @@ local queries = {
 ]]),
     handler = function(results, bufnr, matches, handler)
       local start = matches[1]
+      local target = matches[3]
       local value = matches[4]
       local finish = matches[5]
 
       local _, _, start_row, start_col = start:range()
       local _, _, end_row, end_col = finish:range()
 
-      -- local parent = utils.find_parent_by_type(finish, 'call_expression')
+      -- local tx, rx = async.control.channel.oneshot()
+      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      -- local is_zio = rx()
 
-      -- TODO: figure out how to verify type, LSP returns empty response
-
-      -- if utils.verify_type_is_zio(bufnr, parent) then
+      -- if is_zio then
       handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
       -- end
     end,
   },
 
-  -- x.map(_ => value) becomes x.as(value)
+  -- x.map(_ => value) ~> x.as(value)
   map_value = {
     query = parse_query([[
 (call_expression
   function: (field_expression
     value: (_) @start
-    field: (identifier) @_1 (#eq? @_1 "map")
+    field: (identifier) @target (#eq? @target "map")
   )
   arguments: (arguments
     (lambda_expression
@@ -176,16 +175,15 @@ local queries = {
 ]]),
     handler = function(results, bufnr, matches, handler)
       local start = matches[1]
+      local target = matches[2]
       local value = matches[3]
       local finish = matches[4]
 
       local _, _, start_row, start_col = start:range()
       local _, _, end_row, end_col = finish:range()
 
-      local parent = utils.find_parent_by_type(finish, 'call_expression')
-
       local tx, rx = async.control.channel.oneshot()
-      utils.verify_type_is_zio(bufnr, parent, tx)
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
       local is_zio = rx()
 
       if is_zio then
@@ -194,13 +192,13 @@ local queries = {
     end,
   },
 
-  -- x.foldCause(_ => (), _ => ()) becomes .ignore
+  -- x.foldCause(_ => (), _ => ()) ~> .ignore
   fold_cause_ignore = {
     query = parse_query([[
 (call_expression
   function: (field_expression
     value: (_) @start
-    field: (identifier) @_1 (#eq? @_1 "foldCause")
+    field: (identifier) @target (#eq? @target "foldCause")
   )
   arguments: (arguments
     (lambda_expression
@@ -211,17 +209,15 @@ local queries = {
 )
 ]]),
     handler = function(results, bufnr, matches, handler)
-      -- local field = matches[1]
       local start = matches[1]
+      local target = matches[2]
       local finish = matches[3]
 
       local _, _, start_row, start_col = start:range()
       local _, _, end_row, end_col = finish:range()
 
-      local parent = utils.find_parent_by_type(finish, 'call_expression')
-
       local tx, rx = async.control.channel.oneshot()
-      utils.verify_type_is_zio(bufnr, parent, tx)
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
       local is_zio = rx()
 
       if is_zio then
@@ -230,7 +226,7 @@ local queries = {
     end,
   },
 
-  -- x.unit.catchAll(_ => ()) becomes .ignore
+  -- x.unit.catchAll(_ => ()) ~> .ignore
   unit_catch_all_unit = {
     query = parse_query([[
 (call_expression
@@ -251,7 +247,7 @@ local queries = {
     handler = function(bufnr, matches, results, handler) end,
   },
 
-  -- x.map(x => y).mapError(z => g) becomes .bimap(x => y, z => g)
+  -- x.map(x => y).mapError(z => g) ~> .bimap(x => y, z => g)
   map_error_bimap = {
     query = parse_query([[
 (call_expression

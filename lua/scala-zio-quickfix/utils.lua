@@ -16,13 +16,11 @@ M.ensure_metals = function(bufnr, n)
       name = 'metals',
     })[1]
 
-    if not metals then
+    if not metals or not metals.initialized then
       async.util.sleep(1000)
-      -- vim.print("metals not confirmed, sleep 1 sec")
+      -- vim.notify('Metals not confirmed, sleep 1 sec', vim.log.levels.WARN)
       return M.ensure_metals(bufnr, n + 1)
     else
-      -- vim.print("metals confirmed")
-      -- vim.print(metals)
       return metals
     end
   end
@@ -67,7 +65,7 @@ end
 ---@param bufnr number buffer number
 ---@param node TSNode|nil node to hover on
 ---@param callback function called with the result of the verification (boolean)
-M.verify_type_is_zio = function(bufnr, node, callback)
+M.hover_node_and_match = function(bufnr, node, predicate, callback)
   if node == nil then
     return callback(false)
   end
@@ -77,7 +75,7 @@ M.verify_type_is_zio = function(bufnr, node, callback)
   local end_pos = { p_end_row, p_end_col }
   local params = vim.lsp.util.make_given_range_params(start_pos, end_pos, bufnr)
 
-  vim.lsp.buf_request(bufnr, 'textDocument/hover', params, function(err, result, ctx, config)
+  vim.lsp.buf_request(bufnr, 'textDocument/hover', params, function(err, result, _, _)
     if err ~= nil then
       vim.print(err)
       callback(false)
@@ -87,7 +85,10 @@ M.verify_type_is_zio = function(bufnr, node, callback)
     local is_zio = result ~= nil
       and result.contents ~= nil
       and result.contents.value ~= nil
-      and string.find(result.contents.value, 'ZIO') ~= nil
+      and predicate(result.contents.value)
+
+    -- vim.print(result)
+    -- M.print_ts_node(bufnr, node)
 
     callback(is_zio)
   end)

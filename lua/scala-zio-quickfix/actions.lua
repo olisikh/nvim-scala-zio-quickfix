@@ -12,7 +12,7 @@ end
 function M.resolve_actions(bufnr, start_line, end_line, done)
   local root = parsers.get_tree_root(bufnr)
 
-  local actions = async.util.join({
+  local ok, actions = pcall(async.util.join, {
     async.wrap(
       query.run_query({
         bufnr = bufnr,
@@ -147,7 +147,12 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
     ),
   })
 
-  done(utils.flatten_array(actions))
+  if ok then
+    done(utils.flatten_array(actions))
+  else
+    -- if failed, return nothing
+    done(nil)
+  end
 end
 
 return M

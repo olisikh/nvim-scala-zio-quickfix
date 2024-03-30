@@ -129,6 +129,34 @@ function M.collect_diagnostics(bufnr, done)
       query.run_query({
         bufnr = bufnr,
         root = root,
+        query_name = 'or_else_fail',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
+        end,
+      }),
+      1
+    ),
+
+    async.wrap(
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'or_else_fail2',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
+        end,
+      }),
+      1
+    ),
+
+    async.wrap(
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
         query_name = 'zio_type',
         start_line = start_line,
         end_line = end_line,
@@ -158,6 +186,7 @@ function M.collect_diagnostics(bufnr, done)
     done(utils.flatten_array(diagnostics))
   else
     -- failed to run diagnostics collection, will retry next time when triggered
+    vim.notify('Failed to collect diagnostics: ' .. diagnostics)
     done(nil)
   end
 end

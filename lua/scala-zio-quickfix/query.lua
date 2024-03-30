@@ -68,12 +68,10 @@ local queries = {
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
-      -- local start = matches[1]
       local target = matches[2]
       local finish = matches[3]
 
-      -- local _, _, start_row, start_col = start:range()
-      local tstart_row, tstart_col, _, _ = target:range()
+      local start_row, start_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
       local tx, rx = async.control.channel.oneshot()
@@ -83,20 +81,19 @@ local queries = {
       if is_zio then
         callback(results, {
           diagnostic = {
-            row = tstart_row,
-            start_col = tstart_col,
+            row = start_row,
+            start_col = start_col,
             end_col = end_col,
           },
           action = {
-            start_row = tstart_row,
-            start_col = tstart_col,
+            start_row = start_row,
+            start_col = start_col,
             end_row = end_row,
             end_col = end_col,
           },
           replacement = 'unit',
           title = 'ZIO: replace .map(_ => ()) with .unit',
         })
-        -- handler(results, start_row, start_col, end_row, end_col)
       end
     end,
   },
@@ -117,11 +114,9 @@ local queries = {
 ]]),
     handler = function(results, bufnr, matches, callback)
       local start = matches[1]
-      -- local target = matches[2]
       local finish = matches[3]
 
       local _, _, start_row, start_col = start:range()
-      -- local astart_row, astart_col, _, _ = target:range()
       local dstart_row, dstart_col, end_row, end_col = finish:range()
 
       -- local tx, rx = async.control.channel.oneshot()
@@ -147,8 +142,6 @@ local queries = {
         replacement = '.unit',
         title = title,
       })
-
-      -- handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, finish))
       -- end
     end,
   },
@@ -165,12 +158,10 @@ local queries = {
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
-      -- local start = matches[1]
       local target = matches[2]
       local finish = matches[3]
 
-      -- local _, _, start_row, start_col = start:range()
-      local dstart_row, dstart_col, _, _ = target:range()
+      local start_row, start_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
       -- local tx, rx = async.control.channel.oneshot()
@@ -180,20 +171,19 @@ local queries = {
       -- if is_zio then
       callback(results, {
         diagnostic = {
-          row = dstart_row,
-          start_col = dstart_col,
+          row = start_row,
+          start_col = start_col,
           end_col = end_col,
         },
         action = {
-          start_row = dstart_row,
-          start_col = dstart_col,
+          start_row = start_row,
+          start_col = start_col,
           end_row = end_row,
           end_col = end_col,
         },
         replacement = 'unit',
         title = 'ZIO: replace .as(()) with .unit',
       })
-      -- handler(results, start_row, start_col, end_row, end_col)
       -- end
     end,
   },
@@ -211,13 +201,11 @@ local queries = {
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
-      -- local start = matches[1]
       local target = matches[3]
       local value = matches[4]
       local finish = matches[5]
 
-      -- local _, _, start_row, start_col = start:range()
-      local dstart_row, dstart_col, _, _ = target:range()
+      local start_row, start_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
       -- local tx, rx = async.control.channel.oneshot()
@@ -231,20 +219,19 @@ local queries = {
 
       callback(results, {
         diagnostic = {
-          row = dstart_row,
-          start_col = dstart_col,
+          row = start_row,
+          start_col = start_col,
           end_col = end_col,
         },
         action = {
-          start_row = dstart_row,
-          start_col = dstart_col,
+          start_row = start_row,
+          start_col = start_col,
           end_row = end_row,
           end_col = end_col,
         },
         replacement = replacement,
         title = title,
       })
-      -- handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
       -- end
     end,
   },
@@ -265,12 +252,10 @@ local queries = {
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
-      -- local start = matches[1]
       local target = matches[2]
       local value = matches[3]
       local finish = matches[4]
 
-      -- local _, _, start_row, start_col = start:range()
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
@@ -320,11 +305,9 @@ local queries = {
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
-      -- local start = matches[1]
       local target = matches[2]
       local finish = matches[3]
 
-      -- local _, _, start_row, start_col = start:range()
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
@@ -350,54 +333,112 @@ local queries = {
         replacement = 'ignore',
         title = title,
       })
-      -- handler(results, start_row, start_col, end_row, end_col)
       -- end
     end,
   },
 
-  -- x.unit.catchAll(_ => ()) ~> .ignore
-  unit_catch_all_unit = {
+  -- x.mapError(_ => "hello") ~> x.orElseFail("hello")
+  or_else_fail = {
     query = parse_query([[
-(call_expression
-  function: (field_expression
-    value: (field_expression
-      value: (_) @start
-      field: (identifier) @_1 (#eq? @_1 "unit")
-    )	
-    field: (identifier) @_2 (#eq? @_2 "catchAll")
-  )
-  arguments: (arguments
-    (lambda_expression
-      parameters: (wildcard) (field_expression) @_3 (#eq? @_3 "ZIO.unit")
+(call_expression 
+    function: (field_expression 
+      value: (_) @_1
+      field: (identifier) @_2 (#eq? @_2 "mapError")
     )
-  ) @finish
-)
+    arguments: (arguments (
+      (lambda_expression parameters: (wildcard) (_) @args)
+    )
+  )
+) @capture
 ]]),
-    handler = function(bufnr, matches, results, handler) end,
+    handler = function(results, bufnr, matches, callback)
+      local target = matches[2]
+      local value = matches[3]
+      local finish = matches[4]
+
+      local dstart_row, dstart_col, _, _ = target:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local value_text = utils.get_node_text(bufnr, value)
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      local is_zio = rx()
+
+      local title = 'ZIO: replace .mapError(_ => ' .. value_text .. ') with .orElseFail(' .. value_text .. ')'
+      local replacement = 'orElseFail(' .. value_text .. ')'
+
+      if is_zio then
+        callback(results, {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = replacement,
+          title = title,
+        })
+      end
+    end,
   },
 
-  -- x.map(x => y).mapError(z => g) ~> .bimap(x => y, z => g)
-  map_error_bimap = {
+  -- x.orElse(ZIO.fail("hello")) ~> x.orElseFail("hello")
+  or_else_fail2 = {
     query = parse_query([[
-(call_expression
-  function: (field_expression
-    value: (call_expression
-      function: (field_expression
-        value: (_) @start
-        field: (identifier) @_1 (#eq? @_1 "map")
+(call_expression 
+    function: (field_expression 
+      value: (_) @_1
+      field: (identifier) @_2 (#eq? @_2 "orElse")
+    )
+    arguments: (arguments 
+      (call_expression
+        function: (_) @_3 (#eq? @_3 "ZIO.fail")
+        arguments: (arguments (_) @_4) 
       )
-      arguments: (arguments
-        (lambda_expression parameters: (wildcard) (_) @value)
-      )
-    )	
-    field: (identifier) @_2 (#eq? @_2 "mapError")
-  )
-  arguments: (arguments
-    (lambda_expression parameters: (wildcard) (_) @err )
-  ) @finish
-)
+    ) @finish
+) 
 ]]),
-    handler = function(bufnr, matches, results, handler) end,
+    handler = function(results, bufnr, matches, callback)
+      local target = matches[2]
+      local value = matches[4]
+      local finish = matches[5]
+
+      local dstart_row, dstart_col, _, _ = target:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local value_text = utils.get_node_text(bufnr, value)
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      local is_zio = rx()
+
+      local title = 'ZIO: replace .orElse(ZIO.fail(' .. value_text .. ')) with .orElseFail(' .. value_text .. ')'
+      local replacement = 'orElseFail(' .. value_text .. ')'
+
+      if is_zio then
+        callback(results, {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = replacement,
+          title = title,
+        })
+      end
+    end,
   },
 
   zio_type = {
@@ -571,102 +612,5 @@ function M.run_query(opts)
     return callback(results)
   end
 end
-
--- local function fix_unit_catch_all_unit()
---   local query = queries.unit_catch_all_unit
---   for _, matches, _ in query:iter_matches(root, bufnr) do
---     local field = matches[1]
---     local args = matches[5]
---
---     local _, _, start_row, start_col = field:range()
---     local _, _, end_row, end_col = args:range()
---
---     table.insert(outputs, {
---       title = 'ZIO: replace .unit.catchAll(_ => ()) with .ignore',
---       bufnr = bufnr,
---       start_row = start_row,
---       start_col = start_col,
---       end_col = end_col,
---       end_row = end_row,
---       message = 'ZIO: Replace with .ignore smart constructor',
---       severity = vim.diagnostic.severity.HINT,
---       fn = function()
---         vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.ignore' })
---       end,
---     })
---   end
--- end
---
--- local function fix_map_error_bimap()
---   local query = queries.map_error_bimap
---   for _, matches, _ in query:iter_matches(root, bufnr) do
---     local field = matches[1]
---     local value = matches[3]
---     local err = matches[5]
---     local args = matches[6]
---
---     local value_text = ts.get_node_text(value, bufnr)
---     local err_text = ts.get_node_text(err, bufnr)
---
---     local _, _, start_row, start_col = field:range()
---     local _, _, end_row, end_col = args:range()
---
---     table.insert(outputs, {
---       title = 'ZIO: replace .map(_ => ...).mapError(_ => ...) with .mapBoth',
---       bufnr = bufnr,
---       start_row = start_row,
---       start_col = start_col,
---       end_col = end_col,
---       end_row = end_row,
---       message = 'ZIO: Replace with .mapBoth function',
---       severity = vim.diagnostic.severity.HINT,
---       fn = function()
---         vim.api.nvim_buf_set_text(
---           bufnr,
---           start_row,
---           start_col,
---           end_row,
---           end_col,
---           { '.mapBoth(_ => ' .. err_text .. ', _ => ' .. value_text .. ')' }
---         )
---       end,
---     })
---   end
--- end
---
--- local function fix_if_when()
---   local qs = [[ [
--- (if_expression
---   condition: (_) @cond1 (#not-match? @cond1 "^\!.*")
---   consequence: (_) @cons1
---   alternative: (_) @alt1 (#eq? @alt1 "ZIO.unit")
--- )
--- (if_expression
---   condition: (_) @cond2 (#match? @cond2 "^\!.*")
---   consequence: (_) @alt2 (#eq? @alt2 "ZIO.unit")
---   alternative: (_) @cons2
--- )
--- (if_expression
---   condition: (parenthesized_expression (_) @cond3 (#not-match? @cond1 "^\!.*"))
---   consequence: (_) @cons3
---   alternative: (_) @alt3 (#eq? @alt3 "ZIO.unit")
--- )
--- (if_expression
---   condition: (parenthesized_expression (_) @cond4 (#match? @cond4 "^\!.*"))
---   consequence: (_) @alt4 (#eq? @alt4 "ZIO.unit")
---   alternative: (_) @cons4
--- )] ]]
---
---   local query = ts.query.parse(lang, qs)
---   for _, matches, _ in query:iter_matches(node, bufnr) do
---     local field = matches[1]
---     local args = matches[5]
---
---     local _, _, start_row, start_col = field:range()
---     local _, _, end_row, end_col = args:range()
---
---     vim.api.nvim_buf_set_text(bufnr, start_row, start_col, end_row, end_col, { '.ignore' })
---   end
--- end
 
 return M

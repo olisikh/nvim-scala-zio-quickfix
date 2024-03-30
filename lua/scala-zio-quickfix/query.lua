@@ -23,7 +23,7 @@ local queries = {
   arguments: (arguments (unit)) @_3
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches, callback)
       local target = matches[2]
       local finish = matches[3]
 
@@ -35,7 +35,7 @@ local queries = {
       -- local is_zio = rx()
 
       -- if is_zio then
-      callback(results, {
+      callback({
         diagnostic = {
           row = start_row,
           start_col = start_col,
@@ -67,7 +67,7 @@ local queries = {
   ) @_3
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches, callback)
       local target = matches[2]
       local finish = matches[3]
 
@@ -79,7 +79,7 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        callback(results, {
+        callback({
           diagnostic = {
             row = start_row,
             start_col = start_col,
@@ -112,7 +112,7 @@ local queries = {
   right: (_) @_3 (#any-of? @_3 "ZIO.unit" "ZIO.succeed(())")
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches, callback)
       local start = matches[1]
       local finish = matches[3]
 
@@ -127,7 +127,7 @@ local queries = {
       local title = 'ZIO: replace *> ' .. replaced .. ' with .unit'
 
       -- if is_zio then
-      callback(results, {
+      callback({
         diagnostic = {
           row = dstart_row,
           start_col = dstart_col,
@@ -157,7 +157,7 @@ local queries = {
   arguments: (arguments (unit)) @_3
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches, callback)
       local target = matches[2]
       local finish = matches[3]
 
@@ -169,7 +169,7 @@ local queries = {
       -- local is_zio = rx()
 
       -- if is_zio then
-      callback(results, {
+      callback({
         diagnostic = {
           row = start_row,
           start_col = start_col,
@@ -200,7 +200,7 @@ local queries = {
   ) @_5
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches, callback)
       local target = matches[3]
       local value = matches[4]
       local finish = matches[5]
@@ -217,7 +217,7 @@ local queries = {
       local title = 'ZIO: replace *> ZIO.succeed(' .. value_text .. ') with .as(' .. value_text .. ')'
       local replacement = 'as(' .. value_text .. ')'
 
-      callback(results, {
+      callback({
         diagnostic = {
           row = start_row,
           start_col = start_col,
@@ -251,7 +251,7 @@ local queries = {
   ) @_4
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches, callback)
       local target = matches[2]
       local value = matches[3]
       local finish = matches[4]
@@ -268,7 +268,7 @@ local queries = {
         local title = 'ZIO: replace .map(_ => ' .. value_text .. ') with .as(' .. value_text .. ')'
         local replacement = 'as(' .. value_text .. ')'
 
-        callback(results, {
+        callback({
           diagnostic = {
             row = dstart_row,
             start_col = dstart_col,
@@ -304,7 +304,7 @@ local queries = {
   ) @_3
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches, callback)
       local target = matches[2]
       local finish = matches[3]
 
@@ -318,7 +318,7 @@ local queries = {
       local title = 'ZIO: replace .foldCause(_ => (), _ => ()) with .ignore'
 
       -- if is_zio then
-      callback(results, {
+      callback({
         diagnostic = {
           row = dstart_row,
           start_col = dstart_col,
@@ -351,7 +351,7 @@ local queries = {
   )
 ) @_4
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[2]
       local value = matches[3]
       local finish = matches[4]
@@ -369,7 +369,7 @@ local queries = {
       local replacement = 'orElseFail(' .. value_text .. ')'
 
       if is_zio then
-        callback(results, {
+        return {
           diagnostic = {
             row = dstart_row,
             start_col = dstart_col,
@@ -383,7 +383,7 @@ local queries = {
           },
           replacement = replacement,
           title = title,
-        })
+        }
       end
     end,
   },
@@ -404,7 +404,7 @@ local queries = {
     ) @_5
 ) 
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[2]
       local value = matches[4]
       local finish = matches[5]
@@ -422,7 +422,7 @@ local queries = {
       local replacement = 'orElseFail(' .. value_text .. ')'
 
       if is_zio then
-        callback(results, {
+        return {
           diagnostic = {
             row = dstart_row,
             start_col = dstart_col,
@@ -436,7 +436,7 @@ local queries = {
           },
           replacement = replacement,
           title = title,
-        })
+        }
       end
     end,
   },
@@ -460,7 +460,7 @@ local queries = {
     ) @_5
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[2]
       local value = matches[4]
       local finish = matches[5]
@@ -482,7 +482,7 @@ local queries = {
       local replacement = 'orElseFail(' .. value_text .. ')'
 
       -- if is_zio then
-      callback(results, {
+      return {
         diagnostic = {
           row = dstart_row,
           start_col = dstart_col,
@@ -496,7 +496,7 @@ local queries = {
         },
         replacement = replacement,
         title = title,
-      })
+      }
       -- end
     end,
   },
@@ -517,7 +517,7 @@ local queries = {
   )
 )
 ]]),
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local start = matches[1]
       local finish = matches[5]
 
@@ -542,7 +542,7 @@ local queries = {
         if r_value == m[1] and e_value == m[2] then
           local replacement = m[3]
 
-          callback(results, {
+          return {
             diagnostic = {
               row = start_row,
               start_col = start_col,
@@ -556,7 +556,7 @@ local queries = {
             },
             replacement = replacement,
             title = 'ZIO: replace ZIO[' .. r_value .. ', ' .. e_value .. ', ' .. a_value .. '] with ' .. replacement,
-          })
+          }
         end
       end
     end,
@@ -579,7 +579,7 @@ local queries = {
 )
 ]]),
 
-    handler = function(results, bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local start = matches[1]
       local finish = matches[5]
 
@@ -604,7 +604,7 @@ local queries = {
         if r_value == m[1] and e_value == m[2] then
           local replacement = m[3]
 
-          callback(results, {
+          return {
             diagnostic = {
               row = start_row,
               start_col = start_col,
@@ -618,7 +618,7 @@ local queries = {
             },
             replacement = replacement,
             title = 'ZIO: replace ZLayer[' .. r_value .. ', ' .. e_value .. ', ' .. a_value .. '] with ' .. replacement,
-          })
+          }
         end
       end
     end,
@@ -644,9 +644,9 @@ function M.run_query(opts)
   local end_line = opts.end_line or vim.api.nvim_buf_line_count(bufnr)
 
   local root = opts.root
-  local handler = opts.handler
+  local callback = opts.callback
 
-  return function(callback)
+  return function(cb)
     --- @type table
     ---   - query (vim.treesitter.Query) - compiled treesitter query
     ---   - handler (function) - function that knows how to collect results of the match
@@ -663,13 +663,13 @@ function M.run_query(opts)
 
     if ok then
       for _, matches, _ in query_results do
-        query.handler(results, bufnr, matches, handler)
+        table.insert(results, callback(query.handler(bufnr, matches)))
       end
     else
       vim.notify('Query ' .. opts.query_name .. ' failed ' .. query_results, vim.log.levels.WARN)
     end
 
-    return callback(results)
+    return cb(results)
   end
 end
 

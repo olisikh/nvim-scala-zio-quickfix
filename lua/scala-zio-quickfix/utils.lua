@@ -8,6 +8,11 @@ local M = {}
 ---@param n integer attempts made, used by recursion
 ---@return vim.lsp.Client|nil returns a metals client or nil if not available
 M.ensure_metals = function(bufnr, n)
+  local function wait_and_try_again()
+    async.util.sleep(1000)
+    return M.ensure_metals(bufnr, n + 1)
+  end
+
   if n == 10 then
     return nil
   else
@@ -16,13 +21,13 @@ M.ensure_metals = function(bufnr, n)
       name = 'metals',
     })
 
-    if #clients > 0 then
+    if #clients == 0 then
+      return wait_and_try_again()
+    else
       local metals = clients[1]
 
       if not metals or not metals.initialized then
-        async.util.sleep(1000)
-        -- vim.notify('Metals not confirmed, sleep 1 sec', vim.log.levels.WARN)
-        return M.ensure_metals(bufnr, n + 1)
+        return wait_and_try_again()
       else
         return metals
       end

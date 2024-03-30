@@ -33,6 +33,7 @@ function M.collect_diagnostics(bufnr, done)
     'as_unit',
     'as_value',
     'map_value',
+    'catch_all_unit',
     'fold_cause_ignore',
     'or_else_fail',
     'or_else_fail2',

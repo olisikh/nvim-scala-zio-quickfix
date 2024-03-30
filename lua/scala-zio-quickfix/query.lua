@@ -23,7 +23,7 @@ local queries = {
   arguments: (arguments (unit)) @_3
 )
 ]]),
-    handler = function(bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[2]
       local finish = matches[3]
 
@@ -35,21 +35,23 @@ local queries = {
       -- local is_zio = rx()
 
       -- if is_zio then
-      callback({
-        diagnostic = {
-          row = start_row,
-          start_col = start_col,
-          end_col = end_col,
+      return {
+        {
+          diagnostic = {
+            row = start_row,
+            start_col = start_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = start_row,
+            start_col = start_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = 'unit',
+          title = 'ZIO: replace ZIO.succeed(()) with ZIO.unit',
         },
-        action = {
-          start_row = start_row,
-          start_col = start_col,
-          end_row = end_row,
-          end_col = end_col,
-        },
-        replacement = 'unit',
-        title = 'ZIO: replace ZIO.succeed(()) with ZIO.unit',
-      })
+      }
       -- end
     end,
   },
@@ -67,7 +69,7 @@ local queries = {
   ) @_3
 )
 ]]),
-    handler = function(bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[2]
       local finish = matches[3]
 
@@ -79,21 +81,25 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        callback({
-          diagnostic = {
-            row = start_row,
-            start_col = start_col,
-            end_col = end_col,
+        return {
+          {
+            diagnostic = {
+              row = start_row,
+              start_col = start_col,
+              end_col = end_col,
+            },
+            action = {
+              start_row = start_row,
+              start_col = start_col,
+              end_row = end_row,
+              end_col = end_col,
+            },
+            replacement = 'unit',
+            title = 'ZIO: replace .map(_ => ()) with .unit',
           },
-          action = {
-            start_row = start_row,
-            start_col = start_col,
-            end_row = end_row,
-            end_col = end_col,
-          },
-          replacement = 'unit',
-          title = 'ZIO: replace .map(_ => ()) with .unit',
-        })
+        }
+      else
+        return {}
       end
     end,
   },
@@ -112,7 +118,7 @@ local queries = {
   right: (_) @_3 (#any-of? @_3 "ZIO.unit" "ZIO.succeed(())")
 )
 ]]),
-    handler = function(bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local start = matches[1]
       local finish = matches[3]
 
@@ -127,21 +133,23 @@ local queries = {
       local title = 'ZIO: replace *> ' .. replaced .. ' with .unit'
 
       -- if is_zio then
-      callback({
-        diagnostic = {
-          row = dstart_row,
-          start_col = dstart_col,
-          end_col = end_col,
+      return {
+        {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = start_row,
+            start_col = start_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = '.unit',
+          title = title,
         },
-        action = {
-          start_row = start_row,
-          start_col = start_col,
-          end_row = end_row,
-          end_col = end_col,
-        },
-        replacement = '.unit',
-        title = title,
-      })
+      }
       -- end
     end,
   },
@@ -157,7 +165,7 @@ local queries = {
   arguments: (arguments (unit)) @_3
 )
 ]]),
-    handler = function(bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[2]
       local finish = matches[3]
 
@@ -169,21 +177,23 @@ local queries = {
       -- local is_zio = rx()
 
       -- if is_zio then
-      callback({
-        diagnostic = {
-          row = start_row,
-          start_col = start_col,
-          end_col = end_col,
+      return {
+        {
+          diagnostic = {
+            row = start_row,
+            start_col = start_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = start_row,
+            start_col = start_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = 'unit',
+          title = 'ZIO: replace .as(()) with .unit',
         },
-        action = {
-          start_row = start_row,
-          start_col = start_col,
-          end_row = end_row,
-          end_col = end_col,
-        },
-        replacement = 'unit',
-        title = 'ZIO: replace .as(()) with .unit',
-      })
+      }
       -- end
     end,
   },
@@ -200,7 +210,7 @@ local queries = {
   ) @_5
 )
 ]]),
-    handler = function(bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[3]
       local value = matches[4]
       local finish = matches[5]
@@ -217,21 +227,23 @@ local queries = {
       local title = 'ZIO: replace *> ZIO.succeed(' .. value_text .. ') with .as(' .. value_text .. ')'
       local replacement = 'as(' .. value_text .. ')'
 
-      callback({
-        diagnostic = {
-          row = start_row,
-          start_col = start_col,
-          end_col = end_col,
+      return {
+        {
+          diagnostic = {
+            row = start_row,
+            start_col = start_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = start_row,
+            start_col = start_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = replacement,
+          title = title,
         },
-        action = {
-          start_row = start_row,
-          start_col = start_col,
-          end_row = end_row,
-          end_col = end_col,
-        },
-        replacement = replacement,
-        title = title,
-      })
+      }
       -- end
     end,
   },
@@ -251,7 +263,7 @@ local queries = {
   ) @_4
 )
 ]]),
-    handler = function(bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[2]
       local value = matches[3]
       local finish = matches[4]
@@ -268,22 +280,82 @@ local queries = {
         local title = 'ZIO: replace .map(_ => ' .. value_text .. ') with .as(' .. value_text .. ')'
         local replacement = 'as(' .. value_text .. ')'
 
-        callback({
-          diagnostic = {
-            row = dstart_row,
-            start_col = dstart_col,
-            end_col = end_col,
+        return {
+          {
+            diagnostic = {
+              row = dstart_row,
+              start_col = dstart_col,
+              end_col = end_col,
+            },
+            action = {
+              start_row = dstart_row,
+              start_col = dstart_col,
+              end_row = end_row,
+              end_col = end_col,
+            },
+            replacement = replacement,
+            title = title,
           },
-          action = {
-            start_row = dstart_row,
-            start_col = dstart_col,
-            end_row = end_row,
-            end_col = end_col,
-          },
-          replacement = replacement,
-          title = title,
-        })
+        }
         -- handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
+      else
+        return {}
+      end
+    end,
+  },
+
+  -- x.catchAll(_ => ()) ~> .ignore
+  catch_all_unit = {
+    query = parse_query([[
+(call_expression 
+  function: (field_expression
+    value: (_)
+    field: (_) @_1 (#eq? @_1 "catchAll")
+  )
+  arguments: (arguments 
+    (lambda_expression 
+      parameters: (wildcard) 
+      (_) @_2 (#any-of? @_2 "ZIO.unit" "ZIO.succeed(())")
+     )
+  ) @_3
+)
+]]),
+    handler = function(bufnr, matches)
+      local target = matches[1]
+      local value = matches[2]
+      local finish = matches[3]
+
+      local dstart_row, dstart_col, _, _ = target:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        local value_text = utils.get_node_text(bufnr, value)
+        local title = 'ZIO: replace .catchAll(_ => ' .. value_text .. ') with .ignore'
+        local replacement = 'ignore'
+
+        return {
+          {
+            diagnostic = {
+              row = dstart_row,
+              start_col = dstart_col,
+              end_col = end_col,
+            },
+            action = {
+              start_row = dstart_row,
+              start_col = dstart_col,
+              end_row = end_row,
+              end_col = end_col,
+            },
+            replacement = replacement,
+            title = title,
+          },
+        }
+      else
+        return {}
       end
     end,
   },
@@ -304,7 +376,7 @@ local queries = {
   ) @_3
 )
 ]]),
-    handler = function(bufnr, matches, callback)
+    handler = function(bufnr, matches)
       local target = matches[2]
       local finish = matches[3]
 
@@ -318,21 +390,23 @@ local queries = {
       local title = 'ZIO: replace .foldCause(_ => (), _ => ()) with .ignore'
 
       -- if is_zio then
-      callback({
-        diagnostic = {
-          row = dstart_row,
-          start_col = dstart_col,
-          end_col = end_col,
+      return {
+        {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = 'ignore',
+          title = title,
         },
-        action = {
-          start_row = dstart_row,
-          start_col = dstart_col,
-          end_row = end_row,
-          end_col = end_col,
-        },
-        replacement = 'ignore',
-        title = title,
-      })
+      }
       -- end
     end,
   },
@@ -370,20 +444,24 @@ local queries = {
 
       if is_zio then
         return {
-          diagnostic = {
-            row = dstart_row,
-            start_col = dstart_col,
-            end_col = end_col,
+          {
+            diagnostic = {
+              row = dstart_row,
+              start_col = dstart_col,
+              end_col = end_col,
+            },
+            action = {
+              start_row = dstart_row,
+              start_col = dstart_col,
+              end_row = end_row,
+              end_col = end_col,
+            },
+            replacement = replacement,
+            title = title,
           },
-          action = {
-            start_row = dstart_row,
-            start_col = dstart_col,
-            end_row = end_row,
-            end_col = end_col,
-          },
-          replacement = replacement,
-          title = title,
         }
+      else
+        return {}
       end
     end,
   },
@@ -423,20 +501,24 @@ local queries = {
 
       if is_zio then
         return {
-          diagnostic = {
-            row = dstart_row,
-            start_col = dstart_col,
-            end_col = end_col,
+          {
+            diagnostic = {
+              row = dstart_row,
+              start_col = dstart_col,
+              end_col = end_col,
+            },
+            action = {
+              start_row = dstart_row,
+              start_col = dstart_col,
+              end_row = end_row,
+              end_col = end_col,
+            },
+            replacement = replacement,
+            title = title,
           },
-          action = {
-            start_row = dstart_row,
-            start_col = dstart_col,
-            end_row = end_row,
-            end_col = end_col,
-          },
-          replacement = replacement,
-          title = title,
         }
+      else
+        return {}
       end
     end,
   },
@@ -483,19 +565,21 @@ local queries = {
 
       -- if is_zio then
       return {
-        diagnostic = {
-          row = dstart_row,
-          start_col = dstart_col,
-          end_col = end_col,
+        {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = replacement,
+          title = title,
         },
-        action = {
-          start_row = dstart_row,
-          start_col = dstart_col,
-          end_row = end_row,
-          end_col = end_col,
-        },
-        replacement = replacement,
-        title = title,
       }
       -- end
     end,
@@ -538,11 +622,12 @@ local queries = {
       }
       -- stylua: ignore end
 
+      local results = {}
       for _, m in ipairs(lookup) do
         if r_value == m[1] and e_value == m[2] then
           local replacement = m[3]
 
-          return {
+          table.insert(results, {
             diagnostic = {
               row = start_row,
               start_col = start_col,
@@ -556,9 +641,11 @@ local queries = {
             },
             replacement = replacement,
             title = 'ZIO: replace ZIO[' .. r_value .. ', ' .. e_value .. ', ' .. a_value .. '] with ' .. replacement,
-          }
+          })
         end
       end
+
+      return results
     end,
   },
 
@@ -600,11 +687,12 @@ local queries = {
       }
       -- stylua: ignore end
 
+      local results = {}
       for _, m in ipairs(lookup) do
         if r_value == m[1] and e_value == m[2] then
           local replacement = m[3]
 
-          return {
+          table.insert(results, {
             diagnostic = {
               row = start_row,
               start_col = start_col,
@@ -618,9 +706,11 @@ local queries = {
             },
             replacement = replacement,
             title = 'ZIO: replace ZLayer[' .. r_value .. ', ' .. e_value .. ', ' .. a_value .. '] with ' .. replacement,
-          }
+          })
         end
       end
+
+      return results
     end,
   },
 }
@@ -663,7 +753,10 @@ function M.run_query(opts)
 
     if ok then
       for _, matches, _ in query_results do
-        table.insert(results, callback(query.handler(bufnr, matches)))
+        local items = query.handler(bufnr, matches)
+        for _, item in ipairs(items) do
+          table.insert(results, callback(item))
+        end
       end
     else
       vim.notify('Query ' .. opts.query_name .. ' failed ' .. query_results, vim.log.levels.WARN)

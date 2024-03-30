@@ -35,6 +35,7 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
     'as_unit',
     'as_value',
     'map_value',
+    'catch_all_unit',
     'fold_cause_ignore',
     'or_else_fail',
     'or_else_fail2',

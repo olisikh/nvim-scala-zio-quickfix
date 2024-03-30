@@ -31,9 +31,9 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
   local query_names = {
     'succeed_unit',
     'map_unit',
-    'zip_right_unit',
     'as_unit',
-    'as_value',
+    'zip_right_unit',
+    'zip_right_value',
     'map_value',
     'catch_all_unit',
     'fold_cause_ignore',
@@ -42,6 +42,8 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
     'or_else_fail3',
     'zio_type',
     'zlayer_type',
+    'zio_none',
+    'zio_some',
   }
 
   local queries = {}

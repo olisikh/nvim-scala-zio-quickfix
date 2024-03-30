@@ -13,6 +13,8 @@
     * .delay 
     * .foreach 
     * .foreachPar
+    * .tap/.tapError/.tapBoth
+4. Add a hint if forgot to use a combinator like *> (zipRight), as this is very likely a developer mistake
 
 
 Take ideas from successful Intellij IDEA plugin made by Igal Tabachnik:  

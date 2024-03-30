@@ -199,7 +199,7 @@ local queries = {
   },
 
   -- *> ZIO.succeed(value) ~> .as(value)
-  as_value = {
+  zip_right_value = {
     query = parse_query([[
 (infix_expression
   left: (_) @_1
@@ -211,11 +211,13 @@ local queries = {
 )
 ]]),
     handler = function(bufnr, matches)
+      local start = matches[1]
       local target = matches[3]
       local value = matches[4]
       local finish = matches[5]
 
-      local start_row, start_col, _, _ = target:range()
+      local _, _, start_row, start_col = start:range()
+      local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
       -- local tx, rx = async.control.channel.oneshot()
@@ -225,13 +227,13 @@ local queries = {
       -- if is_zio then
       local value_text = utils.get_node_text(bufnr, value)
       local title = 'ZIO: replace *> ZIO.succeed(' .. value_text .. ') with .as(' .. value_text .. ')'
-      local replacement = 'as(' .. value_text .. ')'
+      local replacement = '.as(' .. value_text .. ')'
 
       return {
         {
           diagnostic = {
-            row = start_row,
-            start_col = start_col,
+            row = dstart_row,
+            start_col = dstart_col,
             end_col = end_col,
           },
           action = {
@@ -713,6 +715,111 @@ local queries = {
       return results
     end,
   },
+
+  -- ZIO.succeed(None) ~> ZIO.none
+  -- ZIO.succeed(Option.empty[A]) ~> ZIO.none
+  zio_none = {
+    query = parse_query([[
+(call_expression
+  function: (field_expression) @_1 (#eq? @_1 "ZIO.succeed")
+  arguments: (arguments
+    [
+      ((identifier) @_2 (#eq? @_2 "None"))
+      ((generic_function
+        function: ((field_expression) @_3 (#eq? @_3 "Option.empty"))
+        type_arguments: (type_arguments (type_identifier) @_4)
+      ))
+    ] @_5
+  ) @_6
+)
+]]),
+    handler = function(bufnr, matches)
+      local start = matches[1]
+      local value = matches[5]
+      local finish = matches[6]
+
+      local dstart_row, dstart_col, _, _ = start:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local value_text = utils.get_node_text(bufnr, value)
+
+      return {
+        {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = 'ZIO.none',
+          title = 'ZIO: replace ZIO.succeed(' .. value_text .. ') with ZIO.none',
+        },
+      }
+    end,
+  },
+
+  -- ZIO.succeed(Some(x)) ~> ZIO.some(x)
+  -- ZIO.succeed(Option(x)) ~> ZIO.some(x)
+  zio_some = {
+    query = parse_query([[
+(call_expression
+  function: (field_expression) @_1 (#eq? @_1 "ZIO.succeed")
+  arguments: (arguments
+    (call_expression
+      function: (identifier) @_2 (#any-of? @_2 "Some" "Option")
+      arguments: (arguments (_) @_3)
+    ) @_4
+  ) @_5
+)
+]]),
+    handler = function(bufnr, matches)
+      local start = matches[1]
+      local value = matches[3]
+      local expr = matches[4]
+      local finish = matches[5]
+
+      local dstart_row, dstart_col, _, _ = start:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local expr_text = utils.get_node_text(bufnr, expr)
+      local value_text = utils.get_node_text(bufnr, value)
+
+      return {
+        {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = 'ZIO.some(' .. value_text .. ')',
+          title = 'ZIO: replace ZIO.succeed(' .. expr_text .. ') with ZIO.some(' .. value_text .. ')',
+        },
+      }
+    end,
+  },
+
+  -- x.map(_ => ExitCode.success) ~> x.exitCode
+  exit_code = {},
+  -- x.as(ExitCode.success) ~> x.exitCode
+  exit_code2 = {},
+  -- x.fold(_ => ExitCode.failure, _ => ExitCode.success)
+  exit_code3 = {},
+
+  -- ZIO.fail(new Exception("hello")).orDie ~> ZIO.die(new Exception("hello"))
+  -- TODO: how to verify the type of expression within fail call, can this be done with "textDocument/hover"
+  -- yes, probably with this https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#typeHierarchy_supertypes
+  zio_die = {},
 }
 
 local M = {}

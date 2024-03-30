@@ -157,6 +157,20 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
       query.run_query({
         bufnr = bufnr,
         root = root,
+        query_name = 'or_else_fail3',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(actions, result)
+          table.insert(actions, make_code_action(bufnr, result))
+        end,
+      }),
+      1
+    ),
+
+    async.wrap(
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
         query_name = 'zio_type',
         start_line = start_line,
         end_line = end_line,

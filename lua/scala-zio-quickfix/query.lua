@@ -16,12 +16,12 @@ local queries = {
   succeed_unit = {
     query = parse_query([[
 (call_expression
-  function: (field_expression 
-    value: (_) @start (#eq? @start "ZIO")
-    field: (identifier) @target (#eq? @target "succeed")
+  function: (field_expression
+    value: (_) @_1 (#eq? @_1 "ZIO")
+    field: (identifier) @_2 (#eq? @_2 "succeed")
   )
-  arguments: (arguments (unit)) @finish
-) @capture
+  arguments: (arguments (unit)) @_3
+)
 ]]),
     handler = function(results, bufnr, matches, callback)
       local target = matches[2]
@@ -59,12 +59,12 @@ local queries = {
     query = parse_query([[
 (call_expression
   function: (field_expression
-    value: (_) @start
-    field: (identifier) @target (#eq? @target "map")
+    value: (_) @_1
+    field: (identifier) @_2 (#eq? @_2 "map")
   )
   (arguments
     (lambda_expression parameters: (wildcard) (unit))
-  ) @finish
+  ) @_3
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
@@ -107,9 +107,9 @@ local queries = {
   zip_right_unit = {
     query = parse_query([[
 (infix_expression
-  left: (_) @start
-  operator: (operator_identifier) @_1 (#eq? @_1 "*>")
-  right: (_) @finish (#any-of? @finish "ZIO.unit" "ZIO.succeed(())")
+  left: (_) @_1
+  operator: (operator_identifier) @_2 (#eq? @_2 "*>")
+  right: (_) @_3 (#any-of? @_3 "ZIO.unit" "ZIO.succeed(())")
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
@@ -151,10 +151,10 @@ local queries = {
     query = parse_query([[
 (call_expression
   function: (field_expression
-    value: (_) @start
-    field: (identifier) @target (#eq? @target "as")
+    value: (_) @_1
+    field: (identifier) @_2 (#eq? @_2 "as")
   )
-  arguments: (arguments (unit)) @finish
+  arguments: (arguments (unit)) @_3
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
@@ -192,12 +192,12 @@ local queries = {
   as_value = {
     query = parse_query([[
 (infix_expression
-  left: (_) @start
-  operator: (operator_identifier) @_1 (#eq? @_1 "*>")
+  left: (_) @_1
+  operator: (operator_identifier) @_2 (#eq? @_2 "*>")
   right: (call_expression
-    function: ((field_expression) @_2 (#eq? @_2 "ZIO.succeed"))
-    arguments: (arguments (_) @value (#not-eq? @value "()"))
-  ) @finish
+    function: ((field_expression) @_3 (#eq? @_3 "ZIO.succeed"))
+    arguments: (arguments (_) @_4 (#not-eq? @_4 "()"))
+  ) @_5
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
@@ -241,14 +241,14 @@ local queries = {
     query = parse_query([[
 (call_expression
   function: (field_expression
-    value: (_) @start
-    field: (identifier) @target (#eq? @target "map")
+    value: (_) @_1
+    field: (identifier) @_2 (#eq? @_2 "map")
   )
   arguments: (arguments
     (lambda_expression
-      parameters: (wildcard) (_) @value (#not-eq? @value "()")
+      parameters: (wildcard) (_) @_3 (#not-eq? @_3 "()")
     )
-  ) @finish
+  ) @_4
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
@@ -293,15 +293,15 @@ local queries = {
     query = parse_query([[
 (call_expression
   function: (field_expression
-    value: (_) @start
-    field: (identifier) @target (#eq? @target "foldCause")
+    value: (_) @_1
+    field: (identifier) @_2 (#eq? @_2 "foldCause")
   )
   arguments: (arguments
     (lambda_expression
       parameters: (wildcard) (unit)
     )
     (lambda_expression parameters: (wildcard) (unit))
-  ) @finish
+  ) @_3
 )
 ]]),
     handler = function(results, bufnr, matches, callback)
@@ -346,10 +346,10 @@ local queries = {
       field: (identifier) @_2 (#eq? @_2 "mapError")
     )
     arguments: (arguments (
-      (lambda_expression parameters: (wildcard) (_) @args)
+      (lambda_expression parameters: (wildcard) (_) @_3)
     )
   )
-) @capture
+) @_4
 ]]),
     handler = function(results, bufnr, matches, callback)
       local target = matches[2]
@@ -401,7 +401,7 @@ local queries = {
         function: (_) @_3 (#eq? @_3 "ZIO.fail")
         arguments: (arguments (_) @_4) 
       )
-    ) @finish
+    ) @_5
 ) 
 ]]),
     handler = function(results, bufnr, matches, callback)
@@ -441,18 +441,78 @@ local queries = {
     end,
   },
 
+  -- x.flatMapError(_ => ZIO.succeed("hello")) ~> x.orElseFail("hello")
+  or_else_fail3 = {
+    query = parse_query([[
+(call_expression
+    function: (field_expression
+      value: (_) @_1
+      field: (identifier) @_2 (#eq? @_2 "flatMapError")
+    )
+    arguments: (arguments
+      (lambda_expression
+        parameters: (wildcard)
+        (call_expression
+          function: (field_expression) @_3
+          arguments: (arguments (_) @_4)
+        )
+      )
+    ) @_5
+)
+]]),
+    handler = function(results, bufnr, matches, callback)
+      local target = matches[2]
+      local value = matches[4]
+      local finish = matches[5]
+
+      local dstart_row, dstart_col, _, _ = target:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local value_text = utils.get_node_text(bufnr, value)
+
+      -- local tx, rx = async.control.channel.oneshot()
+      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      -- local is_zio = rx()
+
+      local title = 'ZIO: replace .flatMapError(_ => ZIO.succeed('
+        .. value_text
+        .. ')) with .orElseFail('
+        .. value_text
+        .. ')'
+      local replacement = 'orElseFail(' .. value_text .. ')'
+
+      -- if is_zio then
+      callback(results, {
+        diagnostic = {
+          row = dstart_row,
+          start_col = dstart_col,
+          end_col = end_col,
+        },
+        action = {
+          start_row = dstart_row,
+          start_col = dstart_col,
+          end_row = end_row,
+          end_col = end_col,
+        },
+        replacement = replacement,
+        title = title,
+      })
+      -- end
+    end,
+  },
+
   zio_type = {
     query = parse_query([[
 (
   generic_type (
     (
-     (type_identifier) @start (#eq? @start "ZIO")
+     (type_identifier) @_1 (#eq? @_1 "ZIO")
     )
     type_arguments: (
       type_arguments 
-      (type_identifier) @R_id 
-      (type_identifier) @E_id 
-      (type_identifier) @A_id 
+      (type_identifier) @_2
+      (type_identifier) @_3
+      (type_identifier) @_4
     ) @finish
   )
 )

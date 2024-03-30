@@ -23,6 +23,7 @@ M.setup = function()
         local bufnr = context.bufnr
         -- local method = context.lsp_method -- textDocument/didOpen
         -- local content = context.lsp_params.textDocument.text
+        -- vim.print(context)
 
         local metals = utils.ensure_metals(bufnr, 0)
         if metals == nil then

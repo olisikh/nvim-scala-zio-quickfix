@@ -3,7 +3,7 @@ local utils = require('scala-zio-quickfix.utils')
 local ts = vim.treesitter
 
 local zio_predicate = function(value)
-  return string.find(value, 'ZIO') ~= nil
+  return string.find(value, 'ZIO') ~= nil -- TODO: match part of markdown?
 end
 
 local function parse_query(query)
@@ -11,6 +11,7 @@ local function parse_query(query)
 end
 
 local queries = {
+
   -- ZIO.succeed(()) ~> ZIO.unit
   succeed_unit = {
     query = parse_query([[
@@ -19,15 +20,14 @@ local queries = {
     value: (_) @start (#eq? @start "ZIO")
     field: (identifier) @target (#eq? @target "succeed")
   )
-  arguments: (arguments (unit)) @end
+  arguments: (arguments (unit)) @finish
 ) @capture
 ]]),
-    handler = function(results, bufnr, matches, handler)
-      local start = matches[1]
+    handler = function(results, bufnr, matches, callback)
       local target = matches[2]
       local finish = matches[3]
 
-      local start_row, start_col, _, _ = start:range()
+      local start_row, start_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
       -- local tx, rx = async.control.channel.oneshot()
@@ -35,7 +35,21 @@ local queries = {
       -- local is_zio = rx()
 
       -- if is_zio then
-      handler(results, start_row, start_col, end_row, end_col)
+      callback(results, {
+        diagnostic = {
+          row = start_row,
+          start_col = start_col,
+          end_col = end_col,
+        },
+        action = {
+          start_row = start_row,
+          start_col = start_col,
+          end_row = end_row,
+          end_col = end_col,
+        },
+        replacement = 'unit',
+        title = 'ZIO: replace ZIO.succeed(()) with ZIO.unit',
+      })
       -- end
     end,
   },
@@ -53,12 +67,13 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(results, bufnr, matches, handler)
-      local start = matches[1]
+    handler = function(results, bufnr, matches, callback)
+      -- local start = matches[1]
       local target = matches[2]
       local finish = matches[3]
 
-      local _, _, start_row, start_col = start:range()
+      -- local _, _, start_row, start_col = start:range()
+      local tstart_row, tstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
       local tx, rx = async.control.channel.oneshot()
@@ -66,13 +81,32 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        handler(results, start_row, start_col, end_row, end_col)
+        callback(results, {
+          diagnostic = {
+            row = tstart_row,
+            start_col = tstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = tstart_row,
+            start_col = tstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = 'unit',
+          title = 'ZIO: replace .map(_ => ()) with .unit',
+        })
+        -- handler(results, start_row, start_col, end_row, end_col)
       end
     end,
   },
 
   -- *> ZIO.succeed(()) ~> .unit
   -- *> ZIO.unit        ~> .unit
+  -- TODO: if ZIO.succeed(()) is on the next line, treesitter renders it as a sibling to the function definition
+  -- example: def func = effect *>
+  --   ZIO.succeed(())
+  -- TODO: also need to support .zipRight(_ => ()), can be replaced with .unit
   zip_right_unit = {
     query = parse_query([[
 (infix_expression
@@ -81,19 +115,40 @@ local queries = {
   right: (_) @finish (#any-of? @finish "ZIO.unit" "ZIO.succeed(())")
 )
 ]]),
-    handler = function(results, bufnr, matches, handler)
+    handler = function(results, bufnr, matches, callback)
       local start = matches[1]
+      -- local target = matches[2]
       local finish = matches[3]
 
       local _, _, start_row, start_col = start:range()
-      local _, _, end_row, end_col = finish:range()
+      -- local astart_row, astart_col, _, _ = target:range()
+      local dstart_row, dstart_col, end_row, end_col = finish:range()
 
       -- local tx, rx = async.control.channel.oneshot()
       -- utils.hover_node_and_match(bufnr, finish, zio_predicate, tx)
       -- local is_zio = rx()
 
+      local replaced = utils.get_node_text(bufnr, finish)
+      local title = 'ZIO: replace *> ' .. replaced .. ' with .unit'
+
       -- if is_zio then
-      handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, finish))
+      callback(results, {
+        diagnostic = {
+          row = dstart_row,
+          start_col = dstart_col,
+          end_col = end_col,
+        },
+        action = {
+          start_row = start_row,
+          start_col = start_col,
+          end_row = end_row,
+          end_col = end_col,
+        },
+        replacement = '.unit',
+        title = title,
+      })
+
+      -- handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, finish))
       -- end
     end,
   },
@@ -109,21 +164,37 @@ local queries = {
   arguments: (arguments (unit)) @finish
 )
 ]]),
-    handler = function(results, bufnr, matches, handler)
-      local start = matches[1]
+    handler = function(results, bufnr, matches, callback)
+      -- local start = matches[1]
       local target = matches[2]
       local finish = matches[3]
 
-      local _, _, start_row, start_col = start:range()
+      -- local _, _, start_row, start_col = start:range()
+      local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
+      -- local tx, rx = async.control.channel.oneshot()
+      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      -- local is_zio = rx()
 
-      if is_zio then
-        handler(results, start_row, start_col, end_row, end_col)
-      end
+      -- if is_zio then
+      callback(results, {
+        diagnostic = {
+          row = dstart_row,
+          start_col = dstart_col,
+          end_col = end_col,
+        },
+        action = {
+          start_row = dstart_row,
+          start_col = dstart_col,
+          end_row = end_row,
+          end_col = end_col,
+        },
+        replacement = 'unit',
+        title = 'ZIO: replace .as(()) with .unit',
+      })
+      -- handler(results, start_row, start_col, end_row, end_col)
+      -- end
     end,
   },
 
@@ -139,13 +210,14 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(results, bufnr, matches, handler)
-      local start = matches[1]
+    handler = function(results, bufnr, matches, callback)
+      -- local start = matches[1]
       local target = matches[3]
       local value = matches[4]
       local finish = matches[5]
 
-      local _, _, start_row, start_col = start:range()
+      -- local _, _, start_row, start_col = start:range()
+      local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
       -- local tx, rx = async.control.channel.oneshot()
@@ -153,7 +225,26 @@ local queries = {
       -- local is_zio = rx()
 
       -- if is_zio then
-      handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
+      local value_text = utils.get_node_text(bufnr, value)
+      local title = 'ZIO: replace *> ZIO.succeed(' .. value_text .. ') with .as(' .. value_text .. ')'
+      local replacement = 'as(' .. value_text .. ')'
+
+      callback(results, {
+        diagnostic = {
+          row = dstart_row,
+          start_col = dstart_col,
+          end_col = end_col,
+        },
+        action = {
+          start_row = dstart_row,
+          start_col = dstart_col,
+          end_row = end_row,
+          end_col = end_col,
+        },
+        replacement = replacement,
+        title = title,
+      })
+      -- handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
       -- end
     end,
   },
@@ -173,13 +264,14 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(results, bufnr, matches, handler)
-      local start = matches[1]
+    handler = function(results, bufnr, matches, callback)
+      -- local start = matches[1]
       local target = matches[2]
       local value = matches[3]
       local finish = matches[4]
 
-      local _, _, start_row, start_col = start:range()
+      -- local _, _, start_row, start_col = start:range()
+      local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
       local tx, rx = async.control.channel.oneshot()
@@ -187,7 +279,26 @@ local queries = {
       local is_zio = rx()
 
       if is_zio then
-        handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
+        local value_text = utils.get_node_text(bufnr, value)
+        local title = 'ZIO: replace .map(_ => ' .. value_text .. ') with .as(' .. value_text .. ')'
+        local replacement = 'as(' .. value_text .. ')'
+
+        callback(results, {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = replacement,
+          title = title,
+        })
+        -- handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
       end
     end,
   },
@@ -208,21 +319,39 @@ local queries = {
   ) @finish
 )
 ]]),
-    handler = function(results, bufnr, matches, handler)
-      local start = matches[1]
+    handler = function(results, bufnr, matches, callback)
+      -- local start = matches[1]
       local target = matches[2]
       local finish = matches[3]
 
-      local _, _, start_row, start_col = start:range()
+      -- local _, _, start_row, start_col = start:range()
+      local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
+      -- local tx, rx = async.control.channel.oneshot()
+      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      -- local is_zio = rx()
 
-      if is_zio then
-        handler(results, start_row, start_col, end_row, end_col)
-      end
+      local title = 'ZIO: replace .foldCause(_ => (), _ => ()) with .ignore'
+
+      -- if is_zio then
+      callback(results, {
+        diagnostic = {
+          row = dstart_row,
+          start_col = dstart_col,
+          end_col = end_col,
+        },
+        action = {
+          start_row = dstart_row,
+          start_col = dstart_col,
+          end_row = end_row,
+          end_col = end_col,
+        },
+        replacement = 'ignore',
+        title = title,
+      })
+      -- handler(results, start_row, start_col, end_row, end_col)
+      -- end
     end,
   },
 

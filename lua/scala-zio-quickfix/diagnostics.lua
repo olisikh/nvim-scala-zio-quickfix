@@ -8,12 +8,13 @@ local source = constants.source
 
 local M = {}
 
-local function make_diagnostic(row, start_col, end_col, message)
+local function make_diagnostic(result)
+  local diagnostic = result.diagnostic
   return {
-    row = row + 1,
-    col = start_col + 1,
-    end_col = end_col + 1,
-    message = message,
+    row = diagnostic.row + 1,
+    col = diagnostic.start_col + 1,
+    end_col = diagnostic.end_col + 1,
+    message = result.title,
     source = source,
     severity = vim.diagnostic.severity.HINT,
   }
@@ -33,11 +34,8 @@ function M.collect_diagnostics(bufnr, done)
         query_name = 'succeed_unit',
         start_line = start_line,
         end_line = end_line,
-        handler = function(diagnostics, _, start_col, end_row, end_col)
-          table.insert(
-            diagnostics,
-            make_diagnostic(end_row, start_col, end_col, 'ZIO: replace ZIO.succeed(()) with ZIO.unit')
-          )
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
         end,
       }),
       1
@@ -50,11 +48,8 @@ function M.collect_diagnostics(bufnr, done)
         query_name = 'map_unit',
         start_line = start_line,
         end_line = end_line,
-        handler = function(diagnostics, _, start_col, end_row, end_col)
-          table.insert(
-            diagnostics,
-            make_diagnostic(end_row, start_col, end_col, 'ZIO: replace .map(_ => ()) with .unit')
-          )
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
         end,
       }),
       1
@@ -67,11 +62,8 @@ function M.collect_diagnostics(bufnr, done)
         query_name = 'zip_right_unit',
         start_line = start_line,
         end_line = end_line,
-        handler = function(diagnostics, _, start_col, end_row, end_col, replaced)
-          table.insert(
-            diagnostics,
-            make_diagnostic(end_row, start_col, end_col, 'ZIO: replace *> ' .. replaced .. ' with .unit')
-          )
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
         end,
       }),
       1
@@ -84,8 +76,8 @@ function M.collect_diagnostics(bufnr, done)
         query_name = 'as_unit',
         start_line = start_line,
         end_line = end_line,
-        handler = function(diagnostics, _, start_col, end_row, end_col)
-          table.insert(diagnostics, make_diagnostic(end_row, start_col, end_col, 'ZIO: replace .as(()) with .unit'))
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
         end,
       }),
       1
@@ -98,16 +90,8 @@ function M.collect_diagnostics(bufnr, done)
         query_name = 'as_value',
         start_line = start_line,
         end_line = end_line,
-        handler = function(diagnostics, _, start_col, end_row, end_col, value)
-          table.insert(
-            diagnostics,
-            make_diagnostic(
-              end_row,
-              start_col,
-              end_col,
-              'ZIO: replace *> ZIO.succeed(' .. value .. ') with .as(' .. value .. ')'
-            )
-          )
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
         end,
       }),
       1
@@ -120,16 +104,8 @@ function M.collect_diagnostics(bufnr, done)
         query_name = 'map_value',
         start_line = start_line,
         end_line = end_line,
-        handler = function(diagnostics, _, start_col, end_row, end_col, value)
-          table.insert(
-            diagnostics,
-            make_diagnostic(
-              end_row,
-              start_col,
-              end_col,
-              'ZIO: replace .map(_ => ' .. value .. ') with .as(' .. value .. ')'
-            )
-          )
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
         end,
       }),
       1
@@ -142,11 +118,8 @@ function M.collect_diagnostics(bufnr, done)
         query_name = 'fold_cause_ignore',
         start_line = start_line,
         end_line = end_line,
-        handler = function(diagnostics, _, start_col, end_row, end_col)
-          table.insert(
-            diagnostics,
-            make_diagnostic(end_row, start_col, end_col, 'ZIO: replace .foldCause(_ => (), _ => ()) with .ignore')
-          )
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
         end,
       }),
       1

@@ -11,17 +11,21 @@ M.ensure_metals = function(bufnr, n)
   if n == 10 then
     return nil
   else
-    local metals = vim.lsp.get_clients({
+    local clients = vim.lsp.get_clients({
       bufnr = bufnr,
       name = 'metals',
-    })[1]
+    })
 
-    if not metals or not metals.initialized then
-      async.util.sleep(1000)
-      -- vim.notify('Metals not confirmed, sleep 1 sec', vim.log.levels.WARN)
-      return M.ensure_metals(bufnr, n + 1)
-    else
-      return metals
+    if #clients > 0 then
+      local metals = clients[1]
+
+      if not metals or not metals.initialized then
+        async.util.sleep(1000)
+        -- vim.notify('Metals not confirmed, sleep 1 sec', vim.log.levels.WARN)
+        return M.ensure_metals(bufnr, n + 1)
+      else
+        return metals
+      end
     end
   end
 end

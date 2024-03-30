@@ -21,14 +21,19 @@ M.setup = function()
         -- vim.print(context)
 
         local bufnr = context.bufnr
-        -- local method = context.lsp_method -- textDocument/didOpen
+        local method = context.lsp_method
         -- local content = context.lsp_params.textDocument.text
+
+        -- vim.print(method)
         -- vim.print(context)
 
-        local metals = utils.ensure_metals(bufnr, 0)
-        if metals == nil then
-          vim.notify('Metals is not ready, will check in later')
-          return done(nil)
+        if method == 'textDocument/didOpen' then
+          local metals = utils.ensure_metals(bufnr, 0)
+
+          if metals == nil then
+            vim.notify('Metals is not ready, will check in later', vim.log.levels.WARN)
+            return done(nil)
+          end
         end
 
         diagnostics.collect_diagnostics(bufnr, done)

@@ -138,6 +138,20 @@ function M.collect_diagnostics(bufnr, done)
       }),
       1
     ),
+
+    async.wrap(
+      query.run_query({
+        bufnr = bufnr,
+        root = root,
+        query_name = 'zlayer_type',
+        start_line = start_line,
+        end_line = end_line,
+        handler = function(diagnostics, result)
+          table.insert(diagnostics, make_diagnostic(result))
+        end,
+      }),
+      1
+    ),
   })
 
   if ok then

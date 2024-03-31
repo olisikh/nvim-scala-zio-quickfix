@@ -32,6 +32,8 @@ function M.collect_diagnostics(bufnr, done)
     'as_unit',
     'zip_right_unit',
     'zip_right_value',
+    'zip_left_value',
+    'flat_map_value',
     'map_value',
     'catch_all_unit',
     'fold_cause_ignore',

@@ -250,6 +250,110 @@ local queries = {
     end,
   },
 
+  zip_left_value = {
+    query = parse_query([[
+(call_expression
+  function: (field_expression
+    value: (_) @_1
+    field: (identifier) @_2 (#eq? @_2 "tap")
+  )
+  arguments: (arguments
+    (lambda_expression
+      parameters: (wildcard) (_) @_3
+    )
+  ) @_4
+)
+]]),
+    handler = function(bufnr, matches)
+      local start = matches[1]
+      local target = matches[2]
+      local value = matches[3]
+      local finish = matches[4]
+
+      local _, _, start_row, start_col = start:range()
+      local dstart_row, dstart_col, _, _ = target:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        local value_text = utils.get_node_text(bufnr, value)
+
+        local base_diagnostic = {
+          diagnostic = { row = dstart_row, start_col = dstart_col, end_col = end_col },
+          action = { start_row = start_row, start_col = start_col, end_row = end_row, end_col = end_col },
+        }
+
+        return {
+          utils.deep_merge(base_diagnostic, {
+            replacement = ' <* ' .. value_text,
+            title = 'ZIO: replace .tap(_ => ' .. value_text .. ') with <* ' .. value_text,
+          }),
+          utils.deep_merge(base_diagnostic, {
+            replacement = '.zipLeft(' .. value_text .. ')',
+            title = 'ZIO: replace .tap(_ => ' .. value_text .. ') with .zipLeft(' .. value_text .. ')',
+          }),
+        }
+      else
+        return {}
+      end
+    end,
+  },
+
+  flat_map_value = {
+    query = parse_query([[
+(call_expression
+  function: (field_expression
+    value: (_) @_1
+    field: (identifier) @_2 (#eq? @_2 "flatMap")
+  )
+  arguments: (arguments
+    (lambda_expression
+      parameters: (wildcard) (_) @_3
+    )
+  ) @_4
+)
+]]),
+    handler = function(bufnr, matches)
+      local start = matches[1]
+      local target = matches[2]
+      local value = matches[3]
+      local finish = matches[4]
+
+      local _, _, start_row, start_col = start:range()
+      local dstart_row, dstart_col, _, _ = target:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local tx, rx = async.control.channel.oneshot()
+      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
+      local is_zio = rx()
+
+      if is_zio then
+        local value_text = utils.get_node_text(bufnr, value)
+
+        local base_diagnostic = {
+          diagnostic = { row = dstart_row, start_col = dstart_col, end_col = end_col },
+          action = { start_row = start_row, start_col = start_col, end_row = end_row, end_col = end_col },
+        }
+
+        return {
+          utils.deep_merge(base_diagnostic, {
+            replacement = ' *> ' .. value_text,
+            title = 'ZIO: replace .flatMap(_ => ' .. value_text .. ') with *> ' .. value_text,
+          }),
+          utils.deep_merge(base_diagnostic, {
+            replacement = '.zipRight(' .. value_text .. ')',
+            title = 'ZIO: replace .flatMap(_ => ' .. value_text .. ') with .zipRight(' .. value_text .. ')',
+          }),
+        }
+      else
+        return {}
+      end
+    end,
+  },
+
   -- x.map(_ => value) ~> x.as(value)
   map_value = {
     query = parse_query([[
@@ -299,7 +403,6 @@ local queries = {
             title = title,
           },
         }
-        -- handler(results, start_row, start_col, end_row, end_col, utils.get_node_text(bufnr, value))
       else
         return {}
       end
@@ -931,9 +1034,14 @@ function M.run_query(opts)
 
     if ok then
       for _, matches, _ in query_results do
-        local items = query.handler(bufnr, matches)
-        for _, item in ipairs(items) do
-          table.insert(results, callback(item))
+        local ok, items = pcall(query.handler, bufnr, matches)
+
+        if ok then
+          for _, item in ipairs(items) do
+            table.insert(results, callback(item))
+          end
+        else
+          vim.notify('Query ' .. opts.query_name .. ' handler failed: ' .. items)
         end
       end
     else

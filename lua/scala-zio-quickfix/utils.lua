@@ -35,6 +35,10 @@ M.ensure_metals = function(bufnr, n)
   end
 end
 
+M.deep_merge = function(tbl, ext)
+  return vim.tbl_deep_extend('error', tbl, ext)
+end
+
 ---Get the text of the TSNode
 ---@param bufnr integer buffer number
 ---@param node TSNode to get text of

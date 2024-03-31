@@ -77,10 +77,9 @@ end
 ---Verifies if the node has ZIO type
 ---@param bufnr number buffer number
 ---@param node TSNode|nil node to hover on
----@param callback function called with the result of the verification (boolean)
-M.hover_node_and_match = function(bufnr, node, predicate, callback)
+M.hover_node_and_match = function(bufnr, node, predicate)
   if node == nil then
-    return callback(false)
+    return false
   end
 
   local p_start_row, p_start_col, p_end_row, p_end_col = node:range()
@@ -88,11 +87,12 @@ M.hover_node_and_match = function(bufnr, node, predicate, callback)
   local end_pos = { p_end_row, p_end_col }
   local params = vim.lsp.util.make_given_range_params(start_pos, end_pos, bufnr)
 
+  local tx, rx = async.control.channel.oneshot()
+
   vim.lsp.buf_request(bufnr, 'textDocument/hover', params, function(err, result, _, _)
     if err ~= nil then
       vim.print(err)
-      callback(false)
-      return
+      return false
     end
 
     local is_zio = result ~= nil
@@ -103,8 +103,10 @@ M.hover_node_and_match = function(bufnr, node, predicate, callback)
     -- vim.print(result)
     -- M.print_ts_node(bufnr, node)
 
-    callback(is_zio)
+    tx(is_zio)
   end)
+
+  return rx()
 end
 
 ---Find a parent of the TSNode by type

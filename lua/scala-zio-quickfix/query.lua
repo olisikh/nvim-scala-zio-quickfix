@@ -30,9 +30,7 @@ local queries = {
       local start_row, start_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      -- local tx, rx = async.control.channel.oneshot()
-      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      -- local is_zio = rx()
+      -- local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       -- if is_zio then
       return {
@@ -76,9 +74,7 @@ local queries = {
       local start_row, start_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
+      local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       if is_zio then
         return {
@@ -125,12 +121,9 @@ local queries = {
       local _, _, start_row, start_col = start:range()
       local dstart_row, dstart_col, end_row, end_col = finish:range()
 
-      -- local tx, rx = async.control.channel.oneshot()
-      -- utils.hover_node_and_match(bufnr, finish, zio_predicate, tx)
-      -- local is_zio = rx()
-
       local replaced = utils.get_node_text(bufnr, finish)
-      local title = 'ZIO: replace *> ' .. replaced .. ' with .unit'
+
+      -- local is_zio = utils.hover_node_and_match(bufnr, finish, zio_predicate)
 
       -- if is_zio then
       return {
@@ -147,7 +140,7 @@ local queries = {
             end_col = end_col,
           },
           replacement = '.unit',
-          title = title,
+          title = 'ZIO: replace *> ' .. replaced .. ' with .unit',
         },
       }
       -- end
@@ -172,9 +165,7 @@ local queries = {
       local start_row, start_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      -- local tx, rx = async.control.channel.oneshot()
-      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      -- local is_zio = rx()
+      -- local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       -- if is_zio then
       return {
@@ -220,15 +211,11 @@ local queries = {
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      -- local tx, rx = async.control.channel.oneshot()
-      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      -- local is_zio = rx()
+      local value_text = utils.get_node_text(bufnr, value)
+
+      -- local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       -- if is_zio then
-      local value_text = utils.get_node_text(bufnr, value)
-      local title = 'ZIO: replace *> ZIO.succeed(' .. value_text .. ') with .as(' .. value_text .. ')'
-      local replacement = '.as(' .. value_text .. ')'
-
       return {
         {
           diagnostic = {
@@ -242,8 +229,8 @@ local queries = {
             end_row = end_row,
             end_col = end_col,
           },
-          replacement = replacement,
-          title = title,
+          replacement = '.as(' .. value_text .. ')',
+          title = 'ZIO: replace *> ZIO.succeed(' .. value_text .. ') with .as(' .. value_text .. ')',
         },
       }
       -- end
@@ -274,9 +261,7 @@ local queries = {
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
+      local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       if is_zio then
         local value_text = utils.get_node_text(bufnr, value)
@@ -326,9 +311,7 @@ local queries = {
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
+      local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       if is_zio then
         local value_text = utils.get_node_text(bufnr, value)
@@ -377,15 +360,11 @@ local queries = {
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
+      local value_text = utils.get_node_text(bufnr, value)
+
+      local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       if is_zio then
-        local value_text = utils.get_node_text(bufnr, value)
-        local title = 'ZIO: replace .map(_ => ' .. value_text .. ') with .as(' .. value_text .. ')'
-        local replacement = 'as(' .. value_text .. ')'
-
         return {
           {
             diagnostic = {
@@ -399,8 +378,8 @@ local queries = {
               end_row = end_row,
               end_col = end_col,
             },
-            replacement = replacement,
-            title = title,
+            replacement = 'as(' .. value_text .. ')',
+            title = 'ZIO: replace .map(_ => ' .. value_text .. ') with .as(' .. value_text .. ')',
           },
         }
       else
@@ -433,15 +412,11 @@ local queries = {
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
+      local value_text = utils.get_node_text(bufnr, value)
+
+      local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       if is_zio then
-        local value_text = utils.get_node_text(bufnr, value)
-        local title = 'ZIO: replace .catchAll(_ => ' .. value_text .. ') with .ignore'
-        local replacement = 'ignore'
-
         return {
           {
             diagnostic = {
@@ -455,8 +430,8 @@ local queries = {
               end_row = end_row,
               end_col = end_col,
             },
-            replacement = replacement,
-            title = title,
+            replacement = 'ignore',
+            title = 'ZIO: replace .catchAll(_ => ' .. value_text .. ') with .ignore',
           },
         }
       else
@@ -488,11 +463,7 @@ local queries = {
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
 
-      -- local tx, rx = async.control.channel.oneshot()
-      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      -- local is_zio = rx()
-
-      local title = 'ZIO: replace .foldCause(_ => (), _ => ()) with .ignore'
+      -- local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
 
       -- if is_zio then
       return {
@@ -509,7 +480,7 @@ local queries = {
             end_col = end_col,
           },
           replacement = 'ignore',
-          title = title,
+          title = 'ZIO: replace .foldCause(_ => (), _ => ()) with .ignore',
         },
       }
       -- end
@@ -540,12 +511,7 @@ local queries = {
 
       local value_text = utils.get_node_text(bufnr, value)
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
-
-      local title = 'ZIO: replace .mapError(_ => ' .. value_text .. ') with .orElseFail(' .. value_text .. ')'
-      local replacement = 'orElseFail(' .. value_text .. ')'
+      local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       if is_zio then
         return {
@@ -561,8 +527,8 @@ local queries = {
               end_row = end_row,
               end_col = end_col,
             },
-            replacement = replacement,
-            title = title,
+            replacement = 'orElseFail(' .. value_text .. ')',
+            title = 'ZIO: replace .mapError(_ => ' .. value_text .. ') with .orElseFail(' .. value_text .. ')',
           },
         }
       else
@@ -597,12 +563,7 @@ local queries = {
 
       local value_text = utils.get_node_text(bufnr, value)
 
-      local tx, rx = async.control.channel.oneshot()
-      utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      local is_zio = rx()
-
-      local title = 'ZIO: replace .orElse(ZIO.fail(' .. value_text .. ')) with .orElseFail(' .. value_text .. ')'
-      local replacement = 'orElseFail(' .. value_text .. ')'
+      local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate)
 
       if is_zio then
         return {
@@ -618,8 +579,8 @@ local queries = {
               end_row = end_row,
               end_col = end_col,
             },
-            replacement = replacement,
-            title = title,
+            replacement = 'orElseFail(' .. value_text .. ')',
+            title = 'ZIO: replace .orElse(ZIO.fail(' .. value_text .. ')) with .orElseFail(' .. value_text .. ')',
           },
         }
       else
@@ -657,16 +618,7 @@ local queries = {
 
       local value_text = utils.get_node_text(bufnr, value)
 
-      -- local tx, rx = async.control.channel.oneshot()
-      -- utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
-      -- local is_zio = rx()
-
-      local title = 'ZIO: replace .flatMapError(_ => ZIO.succeed('
-        .. value_text
-        .. ')) with .orElseFail('
-        .. value_text
-        .. ')'
-      local replacement = 'orElseFail(' .. value_text .. ')'
+      -- local is_zio = utils.hover_node_and_match(bufnr, target, zio_predicate, tx)
 
       -- if is_zio then
       return {
@@ -682,8 +634,12 @@ local queries = {
             end_row = end_row,
             end_col = end_col,
           },
-          replacement = replacement,
-          title = title,
+          replacement = 'orElseFail(' .. value_text .. ')',
+          title = 'ZIO: replace .flatMapError(_ => ZIO.succeed('
+            .. value_text
+            .. ')) with .orElseFail('
+            .. value_text
+            .. ')',
         },
       }
       -- end

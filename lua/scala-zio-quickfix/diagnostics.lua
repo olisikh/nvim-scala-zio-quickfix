@@ -42,6 +42,7 @@ function M.collect_diagnostics(bufnr, done)
     'zlayer_type',
     'zio_none',
     'zio_some',
+    'zio_either',
   }
 
   local queries = {}

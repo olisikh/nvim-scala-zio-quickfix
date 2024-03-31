@@ -718,6 +718,7 @@ local queries = {
 
   -- ZIO.succeed(None) ~> ZIO.none
   -- ZIO.succeed(Option.empty[A]) ~> ZIO.none
+  -- TODO: support cats syntax none
   zio_none = {
     query = parse_query([[
 (call_expression
@@ -765,6 +766,7 @@ local queries = {
 
   -- ZIO.succeed(Some(x)) ~> ZIO.some(x)
   -- ZIO.succeed(Option(x)) ~> ZIO.some(x)
+  -- TODO: support cats syntax x.some
   zio_some = {
     query = parse_query([[
 (call_expression
@@ -804,6 +806,75 @@ local queries = {
           },
           replacement = 'ZIO.some(' .. value_text .. ')',
           title = 'ZIO: replace ZIO.succeed(' .. expr_text .. ') with ZIO.some(' .. value_text .. ')',
+        },
+      }
+    end,
+  },
+
+  zio_either = {
+    query = parse_query([[
+(call_expression
+  function: (field_expression) @_1 (#eq? @_1 "ZIO.succeed")
+  arguments: (arguments 
+    [
+      (call_expression
+          function: (identifier) @_2 (#any-of? @_2 "Left" "Right")
+          arguments: (arguments (_) @_3)
+      )
+      (field_expression
+        value: (_) @_4
+        field: (identifier) @_5 (#any-of? @_5 "asLeft" "asRight")
+      )
+    ] @_6
+  ) @_7
+)
+]]),
+    handler = function(bufnr, matches)
+      local start = matches[1]
+
+      local either = matches[2]
+      local cats_either = matches[5]
+
+      local value = matches[3]
+      local cats_value = matches[4]
+
+      local expr = matches[6]
+      local finish = matches[7]
+
+      local dstart_row, dstart_col, _, _ = start:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local smartc_text = nil
+      local value_text = nil
+      if either ~= nil then
+        smartc_text = string.lower(utils.get_node_text(bufnr, either))
+        value_text = utils.get_node_text(bufnr, value)
+      else
+        if utils.get_node_text(bufnr, cats_either) == 'asLeft' then
+          smartc_text = 'left'
+        else
+          smartc_text = 'right'
+        end
+        value_text = utils.get_node_text(bufnr, cats_value)
+      end
+
+      local expr_text = utils.get_node_text(bufnr, expr)
+
+      return {
+        {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = 'ZIO.' .. smartc_text .. '(' .. value_text .. ')',
+          title = 'ZIO: replace ZIO.succeed(' .. expr_text .. ') with ZIO.' .. smartc_text .. '(' .. value_text .. ')',
         },
       }
     end,

@@ -44,6 +44,7 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
     'zlayer_type',
     'zio_none',
     'zio_some',
+    'zio_either',
   }
 
   local queries = {}

@@ -1,4 +1,3 @@
-local async = require('plenary.async')
 local utils = require('scala-zio-quickfix.utils')
 local ts = vim.treesitter
 

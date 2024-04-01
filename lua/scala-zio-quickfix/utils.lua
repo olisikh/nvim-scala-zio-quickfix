@@ -3,23 +3,30 @@ local async = require('plenary.async')
 
 local M = {}
 
-M.run_or_timeout = function(func, default_value, timeout)
+---Run a function or timeout
+---@param func function to execute
+---@param timeout integer duration in ms to trigger a timeout if function call takes too much time to finish
+---@return boolean status of the call, true if succeeded
+---@return string|any result or error message
+M.run_or_timeout = function(func, timeout)
   local function timeout_func()
     async.util.sleep(timeout)
-    return default_value
+    return false, string.format('timed out after %d ms', timeout)
   end
 
-  return async.util.race({ func, timeout_func })
+  return async.util.race({
+    function()
+      return pcall(func)
+    end,
+    timeout_func,
+  })
 end
 
 ---Makes sure metals is ready
 ---@param bufnr integer buffer number
----@return vim.lsp.Client|nil returns a metals client or nil if not available
+---@return vim.lsp.Client metals client
 M.ensure_metals = function(bufnr)
-  local clients = vim.lsp.get_clients({
-    bufnr = bufnr,
-    name = 'metals',
-  })
+  local clients = vim.lsp.get_clients({ bufnr = bufnr, name = 'metals' })
 
   if #clients == 0 then
     async.util.sleep(100)
@@ -92,7 +99,7 @@ M.hover_node_and_match = function(bufnr, node, predicate)
 
   vim.lsp.buf_request(bufnr, 'textDocument/hover', params, function(err, result, _, _)
     if err ~= nil then
-      vim.print(err)
+      vim.notify(string.format('Request textDocument/hover to Metals LSP server has failed: %s', err))
       return false
     end
 

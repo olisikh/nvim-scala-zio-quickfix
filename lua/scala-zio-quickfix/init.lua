@@ -29,13 +29,15 @@ M.setup = function()
         -- vim.print(context)
 
         if method == 'textDocument/didOpen' then
-          local metals = utils.run_or_timeout(function()
+          local ok, metals = utils.run_or_timeout(function()
             return utils.ensure_metals(bufnr)
-          end, nil, 10000)
+          end, 10000)
 
-          if metals == nil then
-            vim.notify('Metals is not ready, will check in later', vim.log.levels.WARN)
+          if not ok then
+            vim.notify(string.format('Metals is not ready, will check in later: %s', metals), vim.log.levels.WARN)
             return done(nil)
+            -- else
+            --   vim.notify('Metals is OK')
           end
         end
 

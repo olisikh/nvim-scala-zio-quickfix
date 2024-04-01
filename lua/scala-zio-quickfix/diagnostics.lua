@@ -66,13 +66,14 @@ function M.collect_diagnostics(bufnr, done)
     )
   end
 
-  local ok, diagnostics = pcall(async.util.join, queries)
+  local ok, diagnostics = utils.run_or_timeout(function()
+    return async.util.join(queries)
+  end, 30000)
 
   if ok then
     done(utils.flatten_array(diagnostics))
   else
-    -- failed to run diagnostics collection, will retry next time when triggered
-    vim.notify('Failed to collect diagnostics: ' .. diagnostics)
+    vim.notify(string.format('[%s]: Failed to collect diagnostics: %s', source, diagnostics), vim.log.levels.WARN)
     done(nil)
   end
 end

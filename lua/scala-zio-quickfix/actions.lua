@@ -2,6 +2,7 @@ local async = require('plenary.async')
 local parsers = require('nvim-treesitter.parsers')
 local query = require('scala-zio-quickfix.query')
 local utils = require('scala-zio-quickfix.utils')
+local source = require('scala-zio-quickfix.constants').source
 
 local M = {}
 
@@ -68,13 +69,14 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
     )
   end
 
-  local ok, actions = pcall(async.util.join, queries)
+  local ok, actions = utils.run_or_timeout(function()
+    return async.util.join(queries)
+  end, 10000)
 
   if ok then
     done(utils.flatten_array(actions))
   else
-    -- if failed, return nothing
-    vim.notify('Failed to collect actions: ' .. actions)
+    vim.notify(string.format('[%s]: Failed to collect actions: %s', source, actions), vim.log.levels.WARN)
     done(nil)
   end
 end

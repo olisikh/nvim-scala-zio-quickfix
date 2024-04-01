@@ -45,6 +45,7 @@ function M.collect_diagnostics(bufnr, done)
     'zio_none',
     'zio_some',
     'zio_either',
+    'zio_foreach',
   }
 
   local queries = {}

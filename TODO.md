@@ -8,8 +8,6 @@
     * .when 
     * .unless 
     * .exitCode 
-    * .zipLeft 
-    * .zipRight 
     * .delay 
     * .foreach 
     * .foreachPar

@@ -47,6 +47,7 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
     'zio_none',
     'zio_some',
     'zio_either',
+    'zio_foreach',
   }
 
   local queries = {}

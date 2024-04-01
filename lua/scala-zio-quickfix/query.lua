@@ -440,6 +440,61 @@ local queries = {
     end,
   },
 
+  zio_foreach = {
+    query = parse_query([[
+(call_expression
+  function: (_) @_1 (#any-of? @_1 "ZIO.collectAll" "ZIO.collectAllPar")
+  arguments: (_
+    (call_expression
+      function: (field_expression
+        value: (_) @_2
+        field: (_) @_3 (#eq? @_3 "map")
+      )
+      arguments: (_ (_)) @_4
+    )
+  ) @_5
+)
+]]),
+    handler = function(bufnr, matches)
+      local target = matches[1]
+      local collection = matches[2]
+      local value = matches[4]
+      local finish = matches[5]
+
+      local dstart_row, dstart_col, _, _ = target:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local target_text = utils.get_node_text(bufnr, target)
+      local value_text = utils.get_node_text(bufnr, value)
+      local collection_text = utils.get_node_text(bufnr, collection)
+
+      local replacement = nil
+      if target_text == 'ZIO.collectAll' then
+        replacement = 'ZIO.foreach'
+      else
+        replacement = 'ZIO.foreachPar'
+      end
+
+      return {
+        {
+          diagnostic = {
+            row = dstart_row,
+            start_col = dstart_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = dstart_row,
+            start_col = dstart_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = replacement .. '(' .. collection_text .. ')' .. value_text,
+          title = 'ZIO: replace ' .. target_text .. ' with ' .. replacement,
+        },
+      }
+    end,
+  },
+
   -- x.foldCause(_ => (), _ => ()) ~> .ignore
   fold_cause_ignore = {
     query = parse_query([[

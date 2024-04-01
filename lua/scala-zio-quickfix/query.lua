@@ -9,6 +9,8 @@ local function parse_query(query)
   return ts.query.parse('scala', query)
 end
 
+-- TODO: all #eq? against ZIO.succeed and ZIO.unit need to be broken down as it can be ZIO\n.unit ...
+-- or alternatively can match against regex with \n and \s symbols in-between
 local queries = {
 
   -- ZIO.succeed(()) ~> ZIO.unit
@@ -50,6 +52,49 @@ local queries = {
         },
       }
       -- end
+    end,
+  },
+
+  fail_exception_or_die = {
+    query = parse_query([[
+(   
+  (call_expression
+    function: (field_expression
+      value: (identifier) @_x (#eq? @_x "ZIO")
+      field: (identifier) @_y (#eq? @_y "fail")
+    ) @_1 
+    arguments: (arguments (_) @_2)
+  )
+  (identifier) @_3 (#eq? @_3 "orDie")
+) @capture
+]]),
+    handler = function(bufnr, matches)
+      local start = matches[3]
+      local exception = matches[4]
+      local finish = matches[5]
+
+      local start_row, start_col, _, _ = start:range()
+      local _, _, end_row, end_col = finish:range()
+
+      local exception_text = utils.get_node_text(bufnr, exception)
+
+      return {
+        {
+          diagnostic = {
+            row = start_row,
+            start_col = start_col,
+            end_col = end_col,
+          },
+          action = {
+            start_row = start_row,
+            start_col = start_col,
+            end_row = end_row,
+            end_col = end_col,
+          },
+          replacement = 'ZIO.die(' .. exception_text .. ')',
+          title = 'ZIO: replace ZIO.fail(' .. exception_text .. ').orDie with ZIO.die(' .. exception_text .. ')',
+        },
+      }
     end,
   },
 
@@ -104,7 +149,6 @@ local queries = {
   -- TODO: if ZIO.succeed(()) is on the next line, treesitter renders it as a sibling to the function definition
   -- example: def func = effect *>
   --   ZIO.succeed(())
-  -- TODO: also need to support .zipRight(_ => ()), can be replaced with .unit
   zip_right_unit = {
     query = parse_query([[
 (infix_expression

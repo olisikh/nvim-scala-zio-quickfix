@@ -28,6 +28,7 @@ function M.collect_diagnostics(bufnr, done)
 
   local query_names = {
     'succeed_unit',
+    'fail_exception_or_die',
     'map_unit',
     'as_unit',
     'zip_right_unit',

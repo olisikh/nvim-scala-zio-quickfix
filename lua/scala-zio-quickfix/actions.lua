@@ -31,6 +31,7 @@ function M.resolve_actions(bufnr, start_line, end_line, done)
 
   local query_names = {
     'succeed_unit',
+    'fail_exception_or_die',
     'map_unit',
     'as_unit',
     'zip_right_unit',

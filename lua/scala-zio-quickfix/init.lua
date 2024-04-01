@@ -1,4 +1,5 @@
 local null_ls = require('null-ls')
+local async = require('plenary.async')
 local utils = require('scala-zio-quickfix.utils')
 local constants = require('scala-zio-quickfix.constants')
 
@@ -28,7 +29,9 @@ M.setup = function()
         -- vim.print(context)
 
         if method == 'textDocument/didOpen' then
-          local metals = utils.ensure_metals(bufnr, 0)
+          local metals = utils.run_or_timeout(function()
+            return utils.ensure_metals(bufnr)
+          end, nil, 10000)
 
           if metals == nil then
             vim.notify('Metals is not ready, will check in later', vim.log.levels.WARN)

@@ -3,34 +3,35 @@ local async = require('plenary.async')
 
 local M = {}
 
----Makes sure metals is ready
----@param bufnr integer buffer number
----@param n integer attempts made, used by recursion
----@return vim.lsp.Client|nil returns a metals client or nil if not available
-M.ensure_metals = function(bufnr, n)
-  local function wait_and_try_again()
-    async.util.sleep(1000)
-    return M.ensure_metals(bufnr, n + 1)
+M.run_or_timeout = function(func, default_value, timeout)
+  local function timeout_func()
+    async.util.sleep(timeout)
+    return default_value
   end
 
-  if n == 10 then
-    return nil
+  return async.util.race({ func, timeout_func })
+end
+
+---Makes sure metals is ready
+---@param bufnr integer buffer number
+---@return vim.lsp.Client|nil returns a metals client or nil if not available
+M.ensure_metals = function(bufnr)
+  local clients = vim.lsp.get_clients({
+    bufnr = bufnr,
+    name = 'metals',
+  })
+
+  if #clients == 0 then
+    async.util.sleep(100)
+    return M.ensure_metals(bufnr)
   else
-    local clients = vim.lsp.get_clients({
-      bufnr = bufnr,
-      name = 'metals',
-    })
+    local metals = clients[1]
 
-    if #clients == 0 then
-      return wait_and_try_again()
+    if not metals or not metals.initialized then
+      async.util.sleep(100)
+      return M.ensure_metals(bufnr)
     else
-      local metals = clients[1]
-
-      if not metals or not metals.initialized then
-        return wait_and_try_again()
-      else
-        return metals
-      end
+      return metals
     end
   end
 end

@@ -60,13 +60,13 @@ local queries = {
 (   
   (call_expression
     function: (field_expression
-      value: (identifier) @_x (#eq? @_x "ZIO")
-      field: (identifier) @_y (#eq? @_y "fail")
-    ) @_1 
-    arguments: (arguments (_) @_2)
+      value: (identifier) @_1 (#eq? @_1 "ZIO")
+      field: (identifier) @_2 (#eq? @_2 "fail")
+    ) @_3
+    arguments: (arguments (_) @_4)
   )
-  (identifier) @_3 (#eq? @_3 "orDie")
-) @capture
+  (identifier) @_5 (#eq? @_5 "orDie")
+)
 ]]),
     handler = function(bufnr, matches)
       local start = matches[3]
@@ -144,7 +144,6 @@ local queries = {
     end,
   },
 
-  -- *> ZIO.succeed(()) ~> .unit
   -- *> ZIO.unit        ~> .unit
   -- TODO: if ZIO.succeed(()) is on the next line, treesitter renders it as a sibling to the function definition
   -- example: def func = effect *>
@@ -154,12 +153,15 @@ local queries = {
 (infix_expression
   left: (_) @_1
   operator: (operator_identifier) @_2 (#eq? @_2 "*>")
-  right: (_) @_3 (#any-of? @_3 "ZIO.unit" "ZIO.succeed(())")
+  right: (field_expression
+    value: (identifier) @_3 (#eq? @_3 "ZIO")
+    field: (identifier) @_4 (#eq? @_4 "unit")
+  ) @_5
 )
 ]]),
     handler = function(bufnr, matches)
       local start = matches[1]
-      local finish = matches[3]
+      local finish = matches[5]
 
       local _, _, start_row, start_col = start:range()
       local dstart_row, dstart_col, end_row, end_col = finish:range()
@@ -239,16 +241,19 @@ local queries = {
   left: (_) @_1
   operator: (operator_identifier) @_2 (#eq? @_2 "*>")
   right: (call_expression
-    function: ((field_expression) @_3 (#eq? @_3 "ZIO.succeed"))
-    arguments: (arguments (_) @_4 (#not-eq? @_4 "()"))
-  ) @_5
+    function: (field_expression
+      value: (identifier) @_3 (#eq? @_3 "ZIO")
+      field: (identifier) @_4 (#eq? @_4 "succeed")
+    ) @_5
+    arguments: (arguments (_) @_6 (#not-eq? @_6 "()"))
+  ) @_7
 )
 ]]),
     handler = function(bufnr, matches)
       local start = matches[1]
-      local target = matches[3]
-      local value = matches[4]
-      local finish = matches[5]
+      local target = matches[5]
+      local value = matches[6]
+      local finish = matches[7]
 
       local _, _, start_row, start_col = start:range()
       local dstart_row, dstart_col, _, _ = target:range()
@@ -439,18 +444,21 @@ local queries = {
     value: (_)
     field: (_) @_1 (#eq? @_1 "catchAll")
   )
-  arguments: (arguments 
+  arguments: (arguments
     (lambda_expression 
-      parameters: (wildcard) 
-      (_) @_2 (#any-of? @_2 "ZIO.unit" "ZIO.succeed(())")
+      parameters: (wildcard)
+      (field_expression
+        value: (identifier) @_2 (#eq? @_2 "ZIO")
+        field: (identifier) @_3 (#eq? @_3 "unit")
+      ) @_4
      )
-  ) @_3
+  ) @_5
 )
 ]]),
     handler = function(bufnr, matches)
       local target = matches[1]
-      local value = matches[2]
-      local finish = matches[3]
+      local value = matches[4]
+      local finish = matches[5]
 
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
@@ -486,36 +494,40 @@ local queries = {
   zio_foreach = {
     query = parse_query([[
 (call_expression
-  function: (_) @_1 (#any-of? @_1 "ZIO.collectAll" "ZIO.collectAllPar")
+  function: (field_expression
+    value: (identifier) @_1 (#eq? @_1 "ZIO")
+    field: (identifier) @_2 (#any-of? @_2 "collectAll" "collectAllPar")
+  ) @_3
   arguments: (_
     (call_expression
       function: (field_expression
-        value: (_) @_2
-        field: (_) @_3 (#eq? @_3 "map")
+        value: (_) @_4
+        field: (_) @_5 (#eq? @_5 "map")
       )
-      arguments: (_ (_)) @_4
+      arguments: (_ (_)) @_6
     )
-  ) @_5
+  ) @_7
 )
 ]]),
     handler = function(bufnr, matches)
-      local target = matches[1]
-      local collection = matches[2]
-      local value = matches[4]
-      local finish = matches[5]
+      local start = matches[1]
+      local foreach_fun = matches[2]
+      local collection = matches[4]
+      local value = matches[6]
+      local finish = matches[7]
 
-      local dstart_row, dstart_col, _, _ = target:range()
+      local dstart_row, dstart_col, _, _ = start:range()
       local _, _, end_row, end_col = finish:range()
 
-      local target_text = utils.get_node_text(bufnr, target)
+      local foreach_text = utils.get_node_text(bufnr, foreach_fun)
       local value_text = utils.get_node_text(bufnr, value)
       local collection_text = utils.get_node_text(bufnr, collection)
 
       local replacement = nil
-      if target_text == 'ZIO.collectAll' then
-        replacement = 'ZIO.foreach'
+      if foreach_text == 'collectAll' then
+        replacement = 'foreach'
       else
-        replacement = 'ZIO.foreachPar'
+        replacement = 'foreachPar'
       end
 
       return {
@@ -531,8 +543,8 @@ local queries = {
             end_row = end_row,
             end_col = end_col,
           },
-          replacement = replacement .. '(' .. collection_text .. ')' .. value_text,
-          title = 'ZIO: replace ' .. target_text .. ' with ' .. replacement,
+          replacement = 'ZIO.' .. replacement .. '(' .. collection_text .. ')' .. value_text,
+          title = 'ZIO: replace ZIO.' .. foreach_text .. ' with ZIO.' .. replacement,
         },
       }
     end,
@@ -589,13 +601,12 @@ local queries = {
   or_else_fail = {
     query = parse_query([[
 (call_expression 
-    function: (field_expression 
-      value: (_) @_1
-      field: (identifier) @_2 (#eq? @_2 "mapError")
-    )
-    arguments: (arguments (
-      (lambda_expression parameters: (wildcard) (_) @_3)
-    )
+  function: (field_expression
+    value: (_) @_1
+    field: (identifier) @_2 (#eq? @_2 "mapError")
+  )
+  arguments: (arguments
+    (lambda_expression parameters: (wildcard) (_) @_3)
   )
 ) @_4
 ]]),
@@ -639,22 +650,25 @@ local queries = {
   or_else_fail2 = {
     query = parse_query([[
 (call_expression 
-    function: (field_expression 
+    function: (field_expression
       value: (_) @_1
       field: (identifier) @_2 (#eq? @_2 "orElse")
     )
-    arguments: (arguments 
+    arguments: (arguments
       (call_expression
-        function: (_) @_3 (#eq? @_3 "ZIO.fail")
-        arguments: (arguments (_) @_4) 
+        function: (field_expression
+          value: (identifier) @_3 (#eq? @_3 "ZIO")
+          field: (identifier) @_4 (#eq? @_4 "fail")
+        ) @_5
+        arguments: (arguments (_) @_6)
       )
-    ) @_5
+    ) @_7
 ) 
 ]]),
     handler = function(bufnr, matches)
       local target = matches[2]
-      local value = matches[4]
-      local finish = matches[5]
+      local value = matches[6]
+      local finish = matches[7]
 
       local dstart_row, dstart_col, _, _ = target:range()
       local _, _, end_row, end_col = finish:range()
@@ -879,22 +893,28 @@ local queries = {
   zio_none = {
     query = parse_query([[
 (call_expression
-  function: (field_expression) @_1 (#eq? @_1 "ZIO.succeed")
+  function: (field_expression
+    value: (identifier) @_1 (#eq? @_1 "ZIO")
+    field: (identifier) @_2 (#eq? @_2 "succeed")
+  ) @_3
   arguments: (arguments
     [
-      ((identifier) @_2 (#eq? @_2 "None"))
+      ((identifier) @_4 (#eq? @_4 "None"))
       ((generic_function
-        function: ((field_expression) @_3 (#eq? @_3 "Option.empty"))
-        type_arguments: (type_arguments (type_identifier) @_4)
+        function: (field_expression
+          value: (identifier) @_5 (#eq? @_5 "Option")
+          field: (identifier) @_6 (#eq? @_6 "empty")
+        ) @_7
+        type_arguments: (type_arguments (type_identifier) @_8)
       ))
-    ] @_5
-  ) @_6
+    ] @_9
+  ) @_10
 )
 ]]),
     handler = function(bufnr, matches)
-      local start = matches[1]
-      local value = matches[5]
-      local finish = matches[6]
+      local start = matches[3]
+      local value = matches[9]
+      local finish = matches[10]
 
       local dstart_row, dstart_col, _, _ = start:range()
       local _, _, end_row, end_col = finish:range()
@@ -927,20 +947,23 @@ local queries = {
   zio_some = {
     query = parse_query([[
 (call_expression
-  function: (field_expression) @_1 (#eq? @_1 "ZIO.succeed")
+  function: (field_expression
+    value: (identifier) @_1 (#eq? @_1 "ZIO")
+    field: (identifier) @_2 (#eq? @_2 "succeed")
+  ) @_3
   arguments: (arguments
     (call_expression
-      function: (identifier) @_2 (#any-of? @_2 "Some" "Option")
-      arguments: (arguments (_) @_3)
-    ) @_4
-  ) @_5
+      function: (identifier) @_4 (#any-of? @_4 "Some" "Option")
+      arguments: (arguments (_) @_5)
+    ) @_6
+  ) @_7
 )
 ]]),
     handler = function(bufnr, matches)
-      local start = matches[1]
-      local value = matches[3]
-      local expr = matches[4]
-      local finish = matches[5]
+      local start = matches[3]
+      local value = matches[5]
+      local expr = matches[6]
+      local finish = matches[7]
 
       local dstart_row, dstart_col, _, _ = start:range()
       local _, _, end_row, end_col = finish:range()
@@ -971,32 +994,35 @@ local queries = {
   zio_either = {
     query = parse_query([[
 (call_expression
-  function: (field_expression) @_1 (#eq? @_1 "ZIO.succeed")
+  function: (field_expression
+    value: (identifier) @_1 (#eq? @_1 "ZIO")
+    field: (identifier) @_2 (#eq? @_2 "succeed")
+  ) @_3
   arguments: (arguments 
     [
       (call_expression
-          function: (identifier) @_2 (#any-of? @_2 "Left" "Right")
-          arguments: (arguments (_) @_3)
+          function: (identifier) @_4 (#any-of? @_4 "Left" "Right")
+          arguments: (arguments (_) @_5)
       )
       (field_expression
-        value: (_) @_4
-        field: (identifier) @_5 (#any-of? @_5 "asLeft" "asRight")
+        value: (_) @_6
+        field: (identifier) @_7 (#any-of? @_7 "asLeft" "asRight")
       )
-    ] @_6
-  ) @_7
+    ] @_8
+  ) @_9
 )
 ]]),
     handler = function(bufnr, matches)
-      local start = matches[1]
+      local start = matches[3]
 
-      local either = matches[2]
-      local cats_either = matches[5]
+      local either = matches[4]
+      local cats_either = matches[7]
 
-      local value = matches[3]
-      local cats_value = matches[4]
+      local value = matches[5]
+      local cats_value = matches[6]
 
-      local expr = matches[6]
-      local finish = matches[7]
+      local expr = matches[8]
+      local finish = matches[9]
 
       local dstart_row, dstart_col, _, _ = start:range()
       local _, _, end_row, end_col = finish:range()

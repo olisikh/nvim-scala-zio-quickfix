@@ -29,13 +29,13 @@ M.ensure_metals = function(bufnr)
   local clients = vim.lsp.get_clients({ bufnr = bufnr, name = 'metals' })
 
   if #clients == 0 then
-    async.util.sleep(100)
+    async.util.sleep(1000)
     return M.ensure_metals(bufnr)
   else
     local metals = clients[1]
 
     if not metals or not metals.initialized then
-      async.util.sleep(100)
+      async.util.sleep(1000)
       return M.ensure_metals(bufnr)
     else
       return metals

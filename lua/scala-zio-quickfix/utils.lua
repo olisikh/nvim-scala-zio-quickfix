@@ -22,6 +22,9 @@ M.run_or_timeout = function(func, timeout)
   })
 end
 
+-- TODO: implement metals progress messages parsing, expecting for when the indexing is over to then kick off
+-- diagnostics collection
+--
 ---Makes sure metals is ready
 ---@param bufnr integer buffer number
 ---@return vim.lsp.Client metals client
